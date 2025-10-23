@@ -3,7 +3,19 @@ const API_BASE_URL = '/api';
 
 // Check server status on load
 window.addEventListener('DOMContentLoaded', () => {
-    checkHealth();
+  checkHealth();
+  
+  // Add event listeners for buttons
+  const testApiBtn = document.getElementById('test-api-btn');
+  const getInfoBtn = document.getElementById('get-info-btn');
+  
+  if (testApiBtn) {
+    testApiBtn.addEventListener('click', testAPI);
+  }
+  
+  if (getInfoBtn) {
+    getInfoBtn.addEventListener('click', getInfo);
+  }
 });
 
 // Check API Health
