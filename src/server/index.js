@@ -4,6 +4,8 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
+const apiRoutes = require('./routes/api');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -27,32 +29,8 @@ app.use(express.urlencoded({ extended: true }));
 // Servir arquivos estáticos
 app.use(express.static('public'));
 
-// Rotas da API
-app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
-    message: 'Velsrios Platform está funcionando!',
-    timestamp: new Date().toISOString()
-  });
-});
-
-app.get('/api/info', (req, res) => {
-  res.json({
-    name: 'Velsrios Platform',
-    version: '1.0.0',
-    description: 'Minha plataforma moderna e integrada'
-  });
-});
-
-// Rota de exemplo para usuários
-app.get('/api/users', (req, res) => {
-  res.json({
-    users: [
-      { id: 1, name: 'Admin', role: 'admin' },
-      { id: 2, name: 'User', role: 'user' }
-    ]
-  });
-});
+// API Routes
+app.use('/api', apiRoutes);
 
 // Tratamento de erros
 // eslint-disable-next-line no-unused-vars
