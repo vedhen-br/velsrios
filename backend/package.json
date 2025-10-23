@@ -1,0 +1,26 @@
+{
+  "name": "lead-campanha-backend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "node --enable-source-maps src/index.js",
+    "start": "node src/index.js",
+    "seed": "node prisma/seed.js",
+    "migrate": "npx prisma migrate dev --name init --preview-feature",
+    "prisma": "prisma"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.8.0",
+    "axios": "^1.12.2",
+    "body-parser": "^1.20.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "prisma": "^5.8.0",
+    "socket.io": "^4.8.1",
+    "sqlite3": "^5.1.6",
+    "uuid": "^9.0.0",
+    "ws": "^8.13.0"
+  }
+}

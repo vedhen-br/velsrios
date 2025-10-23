@@ -1,0 +1,54 @@
+{
+  "name": "Lead Campanha CRM",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-20-bullseye",
+  
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
+    },
+    "ghcr.io/devcontainers/features/git:1": {}
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "prisma.prisma",
+        "bradlc.vscode-tailwindcss",
+        "ms-vscode.vscode-typescript-next",
+        "christian-kohler.path-intellisense",
+        "dsznajder.es7-react-js-snippets"
+      ],
+      "settings": {
+        "editor.formatOnSave": true
+      }
+    }
+  },
+
+  "forwardPorts": [4000, 5173],
+  
+  "portsAttributes": {
+    "4000": {
+      "label": "Backend API",
+      "onAutoForward": "notify",
+      "visibility": "public",
+      "protocol": "https"
+    },
+    "5173": {
+      "label": "Frontend Vite",
+      "onAutoForward": "notify", 
+      "visibility": "public",
+      "protocol": "https"
+    }
+  },
+
+  "postCreateCommand": "npm install --prefix backend && npm install --prefix frontend && cd backend && npx prisma generate && npx prisma migrate deploy",
+
+  "postStartCommand": "echo '🚀 Codespace pronto! Execute: npm run codespaces' para iniciar backend e frontend",
+
+  "remoteEnv": {
+    "NODE_ENV": "development",
+    "DATABASE_URL": "file:./prisma/dev.db"
+  }
+}
