@@ -55,6 +55,7 @@ app.get('/api/users', (req, res) => {
 });
 
 // Tratamento de erros
+// eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ 
@@ -69,10 +70,10 @@ app.use((req, res) => {
 });
 
 // Iniciar servidor
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`✅ Servidor Velsrios rodando na porta ${PORT}`);
   console.log(`🌐 Acesse: http://localhost:${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
 });
 
-module.exports = app;
+module.exports = { app, server };
