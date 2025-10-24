@@ -2,6 +2,11 @@
 // Works in both local development and GitHub Codespaces
 
 export function getApiUrl() {
+  // Check if running in Vercel production
+  if (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')) {
+    return `${window.location.origin}/api`
+  }
+  
   // Check if running in Codespaces
   if (typeof window !== 'undefined' && window.location.hostname.includes('github.dev')) {
     // Extract base URL and replace port
@@ -30,6 +35,10 @@ export function isCodespaces() {
   return typeof window !== 'undefined' && window.location.hostname.includes('github.dev')
 }
 
+export function isVercel() {
+  return typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')
+}
+
 export function getAppName() {
   return import.meta.env.VITE_APP_NAME || 'Lead Campanha CRM'
 }
@@ -38,6 +47,7 @@ export function getAppName() {
 if (typeof window !== 'undefined') {
   console.log('🌐 Environment:', {
     isCodespaces: isCodespaces(),
+    isVercel: isVercel(),
     apiUrl: getApiUrl(),
     wsUrl: getWebSocketUrl(),
     hostname: window.location.hostname
