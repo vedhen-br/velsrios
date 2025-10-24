@@ -9,5 +9,16 @@ export default defineConfig({
     // Usa porta do ambiente (VITE_PORT/PORT) ou 5173. Se ocupada, escolhe outra.
     port: Number(process.env.VITE_PORT || process.env.PORT || 5173),
     strictPort: false
+  },
+  build: {
+    chunkSizeWarningLimit: 1000, // Aumenta o limite para 1000kb
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          utils: ['axios']
+        }
+      }
+    }
   }
 })
