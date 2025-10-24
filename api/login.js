@@ -8,7 +8,7 @@ const users = [
     id: '1',
     name: 'Administrador',
     email: 'admin@leadcampanha.com',
-    password: 'f665fa7485893b8f2b27293de132603b313ae7db93df49fb30bb50e3e85283c8', // admin123
+    password: '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9', // admin123
     role: 'admin'
   }
 ];
