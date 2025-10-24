@@ -9,7 +9,7 @@
     "dev:frontend": "npm run dev --prefix frontend",
     "build": "npm run build --prefix frontend",
     "build:vercel": "cd frontend && npm install && npm run build",
-    "build-vercel": "cd frontend && npm install && npm run build && cd .. && xcopy /E /I /Y frontend\\dist dist",
+    "build-vercel": "cd frontend && npm ci && npm run build && cd .. && powershell -Command \"if (Test-Path dist) { Remove-Item -Recurse -Force dist }; Copy-Item -Recurse frontend/dist dist\"",
     "prisma:generate": "npm run prisma --prefix backend -- generate",
     "prisma:migrate": "npm run prisma --prefix backend -- migrate dev",
     "prisma:studio": "npm run prisma --prefix backend -- studio",
