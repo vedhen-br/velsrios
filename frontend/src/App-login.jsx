@@ -2,8 +2,38 @@ import React, { useState } from 'react'
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [email, setEmail] = useState('admin@leadcampanha.com')
+  const [password, setPassword] = useState('admin123')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleLogin = async () => {
+    setLoading(true)
+    setError('')
+    
+    try {
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password })
+      })
+      
+      const data = await response.json()
+      
+      if (response.ok) {
+        localStorage.setItem('token', data.token)
+        setIsLoggedIn(true)
+      } else {
+        setError(data.error || 'Erro ao fazer login')
+      }
+    } catch (err) {
+      setError('Erro de conexão com o servidor')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   if (!isLoggedIn) {
     return (
@@ -41,12 +71,19 @@ export default function App() {
 
             <div>
               <button
-                onClick={() => setIsLoggedIn(true)}
-                className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                onClick={handleLogin}
+                disabled={loading}
+                className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
               >
-                Entrar
+                {loading ? 'Entrando...' : 'Entrar'}
               </button>
             </div>
+            
+            {error && (
+              <div className="text-red-600 text-sm text-center">
+                {error}
+              </div>
+            )}
             
             <div className="text-center">
               <p className="text-xs text-gray-500">
