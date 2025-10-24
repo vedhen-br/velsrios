@@ -10,11 +10,13 @@ const app = express()
 const httpServer = createServer(app)
 
 // Configurar CORS para aceitar Codespaces e local
+// Inclui regex para permitir qualquer porta em localhost (facilita dev local)
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
   process.env.FRONTEND_URL,
-  /^https:\/\/.*\.github\.dev$/,  // Codespaces
+  /^http:\/\/localhost:\d+$/,       // qualquer porta localhost (ex.: 5174)
+  /^https:\/\/.*\.github\.dev$/,   // Codespaces
   /^https:\/\/.*\.app\.github\.dev$/  // Codespaces preview
 ].filter(Boolean)
 
