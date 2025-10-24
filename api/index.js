@@ -1,42 +1,30 @@
-// API principal para Vercel Serverless Functions
-import path from 'path';
-import { fileURLToPath } from 'url';
+// API Health Check para Vercel
+export default function handler(req, res) {
+  // CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-// Simular __dirname em ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+  // Handle preflight
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
 
-// Importar o app Express do backend
-let app;
-
-try {
-  // Tentar importar o app do backend
-  const backendPath = path.join(__dirname, '..', 'backend', 'src', 'index.js');
-  const { default: backendApp } = await import(backendPath);
-  app = backendApp;
-} catch (error) {
-  console.error('Erro ao carregar backend:', error);
-  
-  // Fallback: criar app Express básico
-  const express = await import('express');
-  app = express.default();
-  
-  app.get('/', (req, res) => {
-    res.json({ 
+  // Health check endpoint
+  if (req.url === '/api' || req.url === '/api/') {
+    return res.status(200).json({
       message: 'Lead Campanha API - Vercel Deploy',
       status: 'online',
-      timestamp: new Date().toISOString()
-    });
-  });
-  
-  app.get('/api/health', (req, res) => {
-    res.json({ 
-      status: 'ok',
-      environment: process.env.NODE_ENV || 'development',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'production',
       vercel: true
     });
+  }
+
+  // Default response
+  res.status(404).json({
+    error: 'Endpoint not found',
+    available: ['/api', '/api/health']
   });
 }
-
-// Export para Vercel
-export default app;
