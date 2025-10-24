@@ -8,9 +8,17 @@ const API_URL = getApiUrl()
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
-  const [token, setToken] = useState(localStorage.getItem('token'))
+  const [token, setToken] = useState(null)
   const [loading, setLoading] = useState(true)
   const { socket, isConnected } = useSocket(user?.id)
+
+  // Initialize token from localStorage after component mounts
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const storedToken = localStorage.getItem('token')
+      setToken(storedToken)
+    }
+  }, [])
 
   useEffect(() => {
     if (token) {
@@ -34,14 +42,21 @@ export function AuthProvider({ children }) {
   async function login(email, password) {
     const res = await axios.post(`${API_URL}/login`, { email, password })
     const { token, user } = res.data
-    localStorage.setItem('token', token)
+    
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('token', token)
+    }
+    
     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
     setToken(token)
     setUser(user)
   }
 
   function logout() {
-    localStorage.removeItem('token')
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('token')
+    }
+    
     delete axios.defaults.headers.common['Authorization']
     if (socket) {
       socket.disconnect()
