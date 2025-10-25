@@ -17,6 +17,9 @@ const app = express()
 const httpServer = createServer(app)
 const prisma = new PrismaClient()
 
+// Behind a proxy/load balancer (Render, Vercel), trust proxy for correct IPs
+app.set('trust proxy', 1)
+
 // Configurar CORS para aceitar Codespaces e local
 // Inclui regex para permitir qualquer porta em localhost (facilita dev local)
 const allowedOrigins = [
