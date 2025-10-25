@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import { useAuth } from '../contexts/AuthContext'
+import { getApiUrl } from '../utils/env'
 
-const API = 'http://localhost:4000/api'
+const API = getApiUrl()
 
 export default function Dashboard() {
   const { user, logout } = useAuth()

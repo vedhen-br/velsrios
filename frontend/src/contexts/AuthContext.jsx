@@ -12,11 +12,17 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
   const { socket, isConnected } = useSocket(user?.id)
 
-  // Initialize token from localStorage after component mounts
+  // Initialize token and user from localStorage after component mounts
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const storedToken = localStorage.getItem('token')
+      const storedUser = localStorage.getItem('user')
       setToken(storedToken)
+      if (storedUser) {
+        try {
+          setUser(JSON.parse(storedUser))
+        } catch {}
+      }
     }
   }, [])
 
@@ -45,6 +51,7 @@ export function AuthProvider({ children }) {
     
     if (typeof window !== 'undefined') {
       localStorage.setItem('token', token)
+      localStorage.setItem('user', JSON.stringify(user))
     }
     
     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
@@ -63,6 +70,9 @@ export function AuthProvider({ children }) {
     }
     setToken(null)
     setUser(null)
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('user')
+    }
   }
 
   function updateUser(updatedData) {

@@ -78,6 +78,57 @@ router.get('/me', async (req, res) => {
   res.json(user)
 })
 
+// Get dashboard stats
+router.get('/leads/stats', async (req, res) => {
+  try {
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    
+    // Total de leads
+    const totalLeads = await prisma.lead.count()
+    
+    // Leads de hoje
+    const todayLeads = await prisma.lead.count({
+      where: {
+        createdAt: { gte: today }
+      }
+    })
+    
+    // Agentes online (usuarios ativos/disponíveis)
+    const onlineAgents = await prisma.user.count({
+      where: { 
+        available: true,
+        role: { not: 'admin' }
+      }
+    })
+    
+    // Leads em atendimento (stages ativos)
+    const inProgress = await prisma.lead.count({
+      where: {
+        stage: { in: ['contacted', 'qualified', 'proposal', 'negotiation'] }
+      }
+    })
+    
+    // Leads convertidos (fechados)
+    const converted = await prisma.lead.count({
+      where: {
+        stage: 'closed'
+      }
+    })
+    
+    res.json({
+      totalLeads,
+      todayLeads,
+      onlineAgents,
+      inProgress,
+      converted
+    })
+  } catch (error) {
+    console.error('Erro ao buscar stats:', error)
+    res.status(500).json({ error: 'Erro ao buscar estatísticas' })
+  }
+})
+
 // List users (admin ou próprio perfil)
 router.get('/users', async (req, res) => {
   if (req.user.role === 'admin') {
@@ -299,24 +350,49 @@ router.delete('/leads/:id', async (req, res) => {
   await prisma.lead.delete({ where: { id: req.params.id } })
   res.json({ success: true })
 })
-// List leads originados pelo WhatsApp para o chat de atendimento
+// List leads for atendimento (chat interface)
 router.get('/leads/atendimento', async (req, res) => {
-  // Admin vê todos, usuário comum vê só os leads atribuídos a ele
-  let where = { origin: 'whatsapp' }
-  if (req.user.role !== 'admin') {
-    where.assignedTo = req.user.id
+  try {
+    const { stage, assignedTo } = req.query
+    
+    let where = {}
+    
+    // Se não é admin, vê apenas os próprios leads
+    if (req.user.role !== 'admin') {
+      where.assignedTo = req.user.id
+    }
+    
+    // Filtros opcionais
+    if (stage) where.stage = stage
+    if (assignedTo && req.user.role === 'admin') where.assignedTo = assignedTo
+    
+    const leads = await prisma.lead.findMany({
+      where,
+      include: {
+        assignedUser: { select: { id: true, name: true, email: true } },
+        messages: { 
+          orderBy: { createdAt: 'desc' }, 
+          take: 1 // Apenas a última mensagem para a lista
+        },
+        tasks: { where: { completed: false } },
+        _count: { select: { messages: true, tasks: true } }
+      },
+      orderBy: { 
+        updatedAt: 'desc' // Mais recentemente atualizados primeiro
+      }
+    })
+    
+    // Adicionar campo de última interação
+    const leadsWithLastInteraction = leads.map(lead => ({
+      ...lead,
+      lastInteraction: lead.messages[0]?.createdAt || lead.updatedAt
+    }))
+    
+    res.json(leadsWithLastInteraction)
+  } catch (error) {
+    console.error('Erro ao buscar leads para atendimento:', error)
+    res.status(500).json({ error: 'Erro ao buscar leads' })
   }
-  const leads = await prisma.lead.findMany({
-    where,
-    include: {
-      assignedUser: { select: { id: true, name: true, email: true } },
-      messages: { orderBy: { createdAt: 'asc' } },
-      tasks: { where: { completed: false } },
-      _count: { select: { messages: true, tasks: true } }
-    },
-    orderBy: { createdAt: 'desc' }
-  })
-  res.json(leads)
 })
 
 // Bulk actions (admin only)
