@@ -45,17 +45,29 @@ URLs esperadas:
 - Health: http://localhost:4000/api/health
 - Ping:   http://localhost:4000/api/ping
 
-## 🚀 Deploy em um host (ex.: Render)
+## � Auto-seed sem Shell (opcional)
+
+Para evitar uso de Shell no provedor, habilite um auto-seed seguro que só roda quando o banco estiver vazio:
+
+```
+AUTO_SEED=true
+ADMIN_EMAIL=admin@leadcampanha.com
+ADMIN_PASSWORD=admin123
+```
+
+Ao subir o serviço, o backend criará o admin e 5 usuários de demonstração se não existir nenhum usuário no banco. Não apaga dados existentes e roda apenas uma vez.
+
+## �🚀 Deploy em um host (ex.: Render)
 
 1. Criar serviço Web (Node) apontando para `backend/`
 2. Build Command: `npm install`
-3. Start Command: `npm start`
+3. Start Command: `npm run db:deploy && npm start`
 4. Variáveis de ambiente (adicionar todas as acima)
 5. Health Check (opcional): `/api/health`
 
 Após subir:
-- Rode `npm run db:deploy` (via shell do provedor) caso as migrations não apliquem automaticamente.
-- (opcional) `npm run seed` apenas se quiser dados de demo.
+- As migrações rodam automaticamente no start (`db:deploy`).
+- (opcional) para dados de demo, use `AUTO_SEED=true` (sem precisar de Shell). Caso tenha Shell, você também pode rodar `npm run seed` manualmente.
 
 ## 🔌 Conectar o Frontend (Vercel)
 

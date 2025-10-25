@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import NotificationsBell from './NotificationsBell'
 
 export default function Layout({ children, currentPage }) {
   const { user, logout } = useAuth()
@@ -78,9 +79,8 @@ export default function Layout({ children, currentPage }) {
               <div key={item.id} className="relative">
                 {item.submenu ? (
                   <div
-                    className={`px-4 py-2 rounded hover:bg-gray-100 cursor-pointer flex items-center gap-1 ${
-                      currentPage === item.id ? 'bg-green-100' : ''
-                    }`}
+                    className={`px-4 py-2 rounded hover:bg-gray-100 cursor-pointer flex items-center gap-1 ${currentPage === item.id ? 'bg-green-100' : ''
+                      }`}
                     onClick={() => {
                       if (item.id === 'crm') setShowCrmMenu(!showCrmMenu)
                       if (item.id === 'apps') setShowAppsMenu(!showAppsMenu)
@@ -96,9 +96,8 @@ export default function Layout({ children, currentPage }) {
                 ) : (
                   <a
                     href={`#${item.id}`}
-                    className={`px-4 py-2 rounded hover:bg-gray-100 cursor-pointer block ${
-                      currentPage === item.id ? 'bg-green-100' : ''
-                    }`}
+                    className={`px-4 py-2 rounded hover:bg-gray-100 cursor-pointer block ${currentPage === item.id ? 'bg-green-100' : ''
+                      }`}
                   >
                     {item.label}
                   </a>
@@ -111,18 +110,18 @@ export default function Layout({ children, currentPage }) {
                       (item.id === 'apps' && showAppsMenu) ||
                       (item.id === 'relatorios' && showRelatoriosMenu) ||
                       (item.id === 'ajustes' && showAjustesMenu)) && (
-                      <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-2 z-50 min-w-[180px]">
-                        {item.submenu.map(subitem => (
-                          <a
-                            key={subitem.id}
-                            href={`#${subitem.id}`}
-                            className="block px-4 py-2 hover:bg-gray-50 text-sm"
-                          >
-                            {subitem.label}
-                          </a>
-                        ))}
-                      </div>
-                    )}
+                        <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-2 z-50 min-w-[180px]">
+                          {item.submenu.map(subitem => (
+                            <a
+                              key={subitem.id}
+                              href={`#${subitem.id}`}
+                              className="block px-4 py-2 hover:bg-gray-50 text-sm"
+                            >
+                              {subitem.label}
+                            </a>
+                          ))}
+                        </div>
+                      )}
                   </>
                 )}
               </div>
@@ -132,12 +131,8 @@ export default function Layout({ children, currentPage }) {
 
         {/* User Menu */}
         <div className="flex items-center gap-4">
-          <button className="p-2 hover:bg-gray-100 rounded">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-            </svg>
-          </button>
-          
+          <NotificationsBell />
+
           <a href="#perfil" className="flex items-center gap-3 hover:bg-gray-100 rounded px-3 py-2">
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold">
               {user?.name?.charAt(0).toUpperCase()}
@@ -147,7 +142,7 @@ export default function Layout({ children, currentPage }) {
               <p className="text-xs text-gray-500">{user?.role === 'admin' ? 'Admin' : 'Consultor'}</p>
             </div>
           </a>
-          
+
           <button
             onClick={logout}
             className="p-2 hover:bg-gray-100 rounded text-red-600"

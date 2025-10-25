@@ -1,0 +1,142 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Lead Campanha API",
+    "version": "0.1.0",
+    "description": "API do CRM Lead Campanha"
+  },
+  "servers": [
+    {
+      "url": "/api",
+      "description": "Servidor relativo (proxy)"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/login": {
+      "post": {
+        "summary": "Login usuário",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "email",
+                  "password"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Token e usuário"
+          },
+          "401": {
+            "description": "Credenciais inválidas"
+          }
+        }
+      }
+    },
+    "/leads": {
+      "get": {
+        "summary": "Listar leads",
+        "parameters": [
+          {
+            "name": "stage",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "priority",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "assignedTo",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de leads"
+          }
+        }
+      },
+      "post": {
+        "summary": "Criar lead",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "phone": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "interest": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "phone"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Lead criado"
+          },
+          "400": {
+            "description": "Dados inválidos"
+          }
+        }
+      }
+    },
+    "/leads/stats": {
+      "get": {
+        "summary": "Estatísticas de leads",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    }
+  }
+}

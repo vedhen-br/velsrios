@@ -2,12 +2,20 @@ require('dotenv').config()
 const express = require('express')
 const bodyParser = require('body-parser')
 const cors = require('cors')
+const helmet = require('helmet')
+const morgan = require('morgan')
+const rateLimit = require('express-rate-limit')
+const swaggerUi = require('swagger-ui-express')
 const { createServer } = require('http')
 const { Server } = require('socket.io')
+const { PrismaClient } = require('@prisma/client')
 const apiRoutes = require('./routes/api')
+const { autoSeedIfEmpty } = require('./ops/autoSeed')
+const openapiSpec = require('./openapi.json')
 
 const app = express()
 const httpServer = createServer(app)
+const prisma = new PrismaClient()
 
 // Configurar CORS para aceitar Codespaces e local
 // Inclui regex para permitir qualquer porta em localhost (facilita dev local)
@@ -26,13 +34,13 @@ const io = new Server(httpServer, {
     origin: (origin, callback) => {
       // Permitir requests sem origin (mobile apps, Postman, etc)
       if (!origin) return callback(null, true)
-      
+
       const isAllowed = allowedOrigins.some(allowed => {
         if (typeof allowed === 'string') return allowed === origin
         if (allowed instanceof RegExp) return allowed.test(origin)
         return false
       })
-      
+
       callback(null, isAllowed)
     },
     methods: ['GET', 'POST'],
@@ -43,21 +51,40 @@ const io = new Server(httpServer, {
 // Disponibilizar io nas rotas
 app.set('io', io)
 
-app.use(cors({ 
+app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true)
-    
+
     const isAllowed = allowedOrigins.some(allowed => {
       if (typeof allowed === 'string') return allowed === origin
       if (allowed instanceof RegExp) return allowed.test(origin)
       return false
     })
-    
+
     callback(null, isAllowed)
   },
   credentials: true
 }))
-app.use(bodyParser.json())
+// Security headers
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' }
+}))
+
+// Request logging (skip in test env)
+if (process.env.NODE_ENV !== 'test') {
+  app.use(morgan('combined'))
+}
+
+// Basic rate limiting for API
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 1000, // allow generous but safe amount
+  standardHeaders: true,
+  legacyHeaders: false
+})
+app.use('/api', apiLimiter)
+
+app.use(bodyParser.json({ limit: '2mb' }))
 
 // Socket.io eventos
 io.on('connection', (socket) => {
@@ -105,6 +132,9 @@ io.on('connection', (socket) => {
   })
 })
 
+// API docs (basic OpenAPI UI)
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(openapiSpec))
+
 // API routes
 app.use('/api', apiRoutes)
 
@@ -112,12 +142,18 @@ app.use('/api', apiRoutes)
 app.get('/', (req, res) => res.redirect('/api/health'))
 
 const port = process.env.PORT || 4000
-httpServer.listen(port, '0.0.0.0', () => {
+httpServer.listen(port, '0.0.0.0', async () => {
   console.log(`🚀 Backend rodando em http://localhost:${port}`)
   console.log(`📡 API disponível em http://localhost:${port}/api`)
   console.log(`🔌 WebSocket disponível em ws://localhost:${port}`)
   console.log(`📊 Health check: http://localhost:${port}/api/health`)
-  
+  // Auto-seed (opcional): cria usuários básicos se o banco estiver vazio
+  try {
+    await autoSeedIfEmpty(prisma)
+  } catch (err) {
+    console.warn('⚠️  Auto-seed ignorado:', err?.message)
+  }
+
   // Log Codespaces URL if available
   if (process.env.CODESPACE_NAME) {
     console.log(`\n🌐 Codespaces URLs:`)

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { NotificationsProvider } from './contexts/NotificationsContext'
 import Login from './pages/Login'
 import Atendimentos from './pages/Atendimentos'
 import Dashboard from './pages/Dashboard'
@@ -19,10 +20,10 @@ function AppContent() {
       const hash = window.location.hash.slice(1)
       if (hash) setCurrentPage(hash)
     }
-    
+
     window.addEventListener('hashchange', handleHashChange)
     handleHashChange()
-    
+
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
 
@@ -72,7 +73,9 @@ function AppContent() {
 export default function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <NotificationsProvider>
+        <AppContent />
+      </NotificationsProvider>
     </AuthProvider>
   )
 }

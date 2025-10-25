@@ -13,6 +13,7 @@ export default function Dashboard() {
   const [selectedLead, setSelectedLead] = useState(null)
   const [filter, setFilter] = useState({ stage: '', priority: '', assignedTo: '' })
   const [newLeadForm, setNewLeadForm] = useState({ name: '', phone: '', interest: '' })
+  const [stats, setStats] = useState({ totalLeads: 0, todayLeads: 0, onlineAgents: 0, inProgress: 0, converted: 0 })
 
   useEffect(() => {
     fetchData()
@@ -28,12 +29,14 @@ export default function Dashboard() {
       if (filter.priority) params.append('priority', filter.priority)
       if (filter.assignedTo) params.append('assignedTo', filter.assignedTo)
 
-      const [leadsRes, usersRes] = await Promise.all([
+      const [leadsRes, usersRes, statsRes] = await Promise.all([
         axios.get(`${API}/leads?${params}`),
-        axios.get(`${API}/users`)
+        axios.get(`${API}/users`),
+        axios.get(`${API}/leads/stats`).catch(() => ({ data: stats }))
       ])
       setLeads(leadsRes.data)
       setUsers(usersRes.data)
+      setStats(statsRes.data)
     } catch (e) {
       console.error(e)
     }
@@ -82,19 +85,19 @@ export default function Dashboard() {
         <div className="grid grid-cols-4 gap-4 mb-6">
           <div className="bg-white p-4 rounded-lg shadow">
             <div className="text-gray-600 text-sm">Total de Leads</div>
-            <div className="text-3xl font-bold text-blue-600">{leads.length}</div>
+            <div className="text-3xl font-bold text-blue-600">{stats.totalLeads || leads.length}</div>
           </div>
           <div className="bg-white p-4 rounded-lg shadow">
             <div className="text-gray-600 text-sm">Meus Leads</div>
             <div className="text-3xl font-bold text-green-600">{myLeads.length}</div>
           </div>
           <div className="bg-white p-4 rounded-lg shadow">
-            <div className="text-gray-600 text-sm">Não Atribuídos</div>
-            <div className="text-3xl font-bold text-yellow-600">{unassigned.length}</div>
+            <div className="text-gray-600 text-sm">Em Atendimento</div>
+            <div className="text-3xl font-bold text-yellow-600">{stats.inProgress}</div>
           </div>
           <div className="bg-white p-4 rounded-lg shadow">
-            <div className="text-gray-600 text-sm">Usuários</div>
-            <div className="text-3xl font-bold text-purple-600">{users.length}</div>
+            <div className="text-gray-600 text-sm">Hoje</div>
+            <div className="text-3xl font-bold text-purple-600">{stats.todayLeads}</div>
           </div>
         </div>
 
@@ -106,21 +109,21 @@ export default function Dashboard() {
               className="border px-3 py-2 rounded flex-1"
               placeholder="Nome"
               value={newLeadForm.name}
-              onChange={e => setNewLeadForm({...newLeadForm, name: e.target.value})}
+              onChange={e => setNewLeadForm({ ...newLeadForm, name: e.target.value })}
               required
             />
             <input
               className="border px-3 py-2 rounded flex-1"
               placeholder="Telefone"
               value={newLeadForm.phone}
-              onChange={e => setNewLeadForm({...newLeadForm, phone: e.target.value})}
+              onChange={e => setNewLeadForm({ ...newLeadForm, phone: e.target.value })}
               required
             />
             <input
               className="border px-3 py-2 rounded flex-1"
               placeholder="Interesse"
               value={newLeadForm.interest}
-              onChange={e => setNewLeadForm({...newLeadForm, interest: e.target.value})}
+              onChange={e => setNewLeadForm({ ...newLeadForm, interest: e.target.value })}
             />
             <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
               Criar Lead
@@ -140,7 +143,7 @@ export default function Dashboard() {
             <select
               className="border px-3 py-2 rounded"
               value={filter.stage}
-              onChange={e => setFilter({...filter, stage: e.target.value})}
+              onChange={e => setFilter({ ...filter, stage: e.target.value })}
             >
               <option value="">Todos os Estágios</option>
               {stages.map(s => <option key={s} value={s}>{s}</option>)}
@@ -148,7 +151,7 @@ export default function Dashboard() {
             <select
               className="border px-3 py-2 rounded"
               value={filter.priority}
-              onChange={e => setFilter({...filter, priority: e.target.value})}
+              onChange={e => setFilter({ ...filter, priority: e.target.value })}
             >
               <option value="">Todas Prioridades</option>
               <option value="high">Alta</option>
@@ -159,7 +162,7 @@ export default function Dashboard() {
               <select
                 className="border px-3 py-2 rounded"
                 value={filter.assignedTo}
-                onChange={e => setFilter({...filter, assignedTo: e.target.value})}
+                onChange={e => setFilter({ ...filter, assignedTo: e.target.value })}
               >
                 <option value="">Todos Usuários</option>
                 {users.filter(u => u.role !== 'admin').map(u => (
@@ -193,11 +196,10 @@ export default function Dashboard() {
                       <div className="font-medium text-sm">{lead.name || lead.phone}</div>
                       <div className="text-xs text-gray-600">{lead.interest}</div>
                       <div className="flex items-center justify-between mt-1">
-                        <span className={`text-xs px-1 py-0.5 rounded ${
-                          lead.priority === 'high' ? 'bg-red-100 text-red-700' :
-                          lead.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                          'bg-gray-100 text-gray-700'
-                        }`}>
+                        <span className={`text-xs px-1 py-0.5 rounded ${lead.priority === 'high' ? 'bg-red-100 text-red-700' :
+                            lead.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                              'bg-gray-100 text-gray-700'
+                          }`}>
                           {lead.priority}
                         </span>
                         <span className="text-xs text-gray-500">
