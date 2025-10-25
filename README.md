@@ -1,223 +1,208 @@
-# Lead Campanha - Plataforma Completa de CRM e Atendimento
+# 🚀 Lead Campanha - Sistema CRM Completo
 
-Plataforma web de atendimento e CRM integrada ao WhatsApp, com qualificação automatizada de leads via IA e distribuição inteligente round-robin.
+[![Deploy](https://img.shields.io/badge/Deploy-Vercel-000000?style=flat&logo=vercel)](https://vercel.com)
+[![GitHub](https://img.shields.io/badge/GitHub-velsrios-181717?style=flat&logo=github)](https://github.com/vedhen-br/velsrios)
 
-## 🚀 Funcionalidades Principais
+## 📋 Sobre o Projeto
 
-### 💬 Atendimento
-- ✅ Interface de chat 3 colunas estilo papo.ai
-- ✅ Webhook WhatsApp com classificação automática via IA
-- ✅ Distribuição round-robin com limite de leads por usuário
-- ✅ Histórico completo de mensagens e logs
+Sistema CRM completo para gestão de leads e campanhas de marketing, desenvolvido com tecnologias modernas e focado na automação de processos comerciais.
 
-### 📇 CRM Completo
-- ✅ **Contatos:** Listagem, busca, filtros avançados, ações em massa, exportar CSV
-- ✅ **Kanban:** 6 estágios (new → contacted → qualified → proposal → negotiation → closed)
-- ✅ Filtros por estágio, prioridade e responsável
-- ✅ Criar e gerenciar leads manualmente
+### 🎯 Objetivo Principal
+Criar uma plataforma completa de CRM que permita:
+- Gestão eficiente de leads e contatos
+- Automação de processos comerciais
+- Integração com WhatsApp para comunicação
+- Análise de performance e relatórios detalhados
+- Sistema de tarefas e follow-ups
+- Classificação automática de leads com IA
 
-### ✅ Tarefas
-- ✅ Sistema completo de tarefas com vinculação a leads
-- ✅ Organização automática: Atrasadas, Hoje, Próximas, Sem Data
-- ✅ Marcar como concluída, excluir, estatísticas
+## 🏗️ Arquitetura do Sistema
 
-### 📊 Relatórios e Indicadores
-- ✅ KPIs principais: Total, Abertos, Fechados, Taxa de Conversão
-- ✅ Funil de conversão visual com percentuais
-- ✅ Leads por prioridade e estágio
-- ✅ Performance por usuário
-- ✅ Filtro por período (data início/fim)
+### **Frontend** - React + Vite
+- **Framework**: React 18 com Vite
+- **Styling**: Tailwind CSS
+- **Estado**: Context API + Hooks
+- **Build**: Otimizado para produção
 
-### ⚙️ Configurações (Admin)
-- ✅ Gerenciar usuários: limites, disponibilidade, roles
-- ✅ Sistema de tags com cores customizáveis
-- ✅ Ativar/desativar usuários
-- ✅ Controle de permissões
+### **Backend** - Node.js + Prisma
+- **Runtime**: Node.js
+- **ORM**: Prisma com PostgreSQL
+- **Autenticação**: JWT
+- **API**: RESTful endpoints
 
-### 🔐 Segurança
-- ✅ Autenticação JWT com roles (Admin / User)
-- ✅ Permissões por role (admin vê tudo, user vê apenas seus leads)
-- ✅ Senhas hashadas com SHA256
+### **Deploy** - GitHub + Vercel
+- **Repositório**: GitHub (vedhen-br/velsrios)
+- **Deploy**: Vercel com auto-deploy no push
+- **Banco**: PostgreSQL (Vercel Postgres)
 
-## 📁 Estrutura
+## 📁 Estrutura do Projeto
 
 ```
-backend/
-  src/
-    auth/          # JWT e autenticação
-    services/      # Distribuidor round-robin e IA
-    routes/        # 20+ endpoints API RESTful
-  prisma/          # Schema (6 models: User, Lead, Message, LeadLog, Task, Tag)
-frontend/
-  src/
-    contexts/      # AuthContext
-    components/    # Layout com navegação completa
-    pages/         # 6 páginas: Login, Atendimentos, Dashboard, Contatos, Tarefas, Relatórios, Configurações
+Lead Campanha/
+├── 📱 frontend/          # React App (Vite + Tailwind)
+├── ⚙️ backend/           # Node.js API (Prisma + JWT)
+├── 🔗 api/              # Vercel Serverless Functions
+├── 📊 prisma/           # Schema e Migrações DB
+└── 📚 docs/             # Documentação e Guias
 ```
 
-## � Como Começar
+## ✅ Status de Implementação
 
-### ⚡ Quick Start (GitHub Codespaces - Recomendado)
+### ✅ **CONCLUÍDO**
+- [x] Estrutura base do projeto (Frontend + Backend)
+- [x] Sistema de autenticação (JWT + Login)
+- [x] Banco de dados PostgreSQL com Prisma
+- [x] API básica (health, leads, login)
+- [x] Dashboard inicial com navegação
+- [x] Deploy configurado (GitHub + Vercel)
+- [x] Seeding do banco de dados
+- [x] Layout responsivo com Tailwind CSS
 
-**Primeira vez?** Siga o passo a passo completo:
+### 🚧 **EM PROGRESSO**
+- [ ] Sistema de leads básico
+- [ ] Interface de usuário aprimorada
+- [ ] Testes automatizados
 
-📘 **[SETUP_GITHUB.md](./SETUP_GITHUB.md)** - Guia para criar repositório e usar Codespaces
+### 📋 **PLANEJADO**
 
-✅ **[CHECKLIST.md](./CHECKLIST.md)** - Lista de verificação passo a passo
+## 🎯 Próximos Passos Priorizados
 
-🎯 **[QUICKSTART.md](./QUICKSTART.md)** - Resumo rápido dos comandos
+### **Opção 1: Página de Contatos (CRM Completo)** ⭐ **RECOMENDADO**
+**Objetivo**: Transformar em um CRM completo e funcional
+- [ ] Listagem completa de leads com busca e filtros avançados
+- [ ] Importação/exportação CSV
+- [ ] Ações em massa (tags, reatribuição, exclusão)
+- [ ] Melhor gestão de toda a base de contatos
+- [ ] Sistema de tags e categorização
+- [ ] Histórico de interações
 
-### 🏠 Instalação Local
+### **Opção 2: Relatórios e Indicadores** 📊
+**Objetivo**: Analytics e Business Intelligence
+- [ ] Dashboard analítico com gráficos (Chart.js/Recharts)
+- [ ] Métricas de conversão e performance
+- [ ] Relatórios por período/usuário/equipe
+- [ ] KPIs de vendas e ROI
+- [ ] Exportação de relatórios (PDF/Excel)
 
-#### 1. Backend
+### **Opção 3: Sistema de Tarefas Completo** ✅
+**Objetivo**: Gestão de produtividade e follow-ups
+- [ ] Gestão de follow-ups e pendências
+- [ ] Agenda integrada (calendar view)
+- [ ] Lembretes e notificações
+- [ ] Vinculação a leads e oportunidades
+- [ ] Sistema de prioridades
 
-```powershell
-cd "c:\Users\pedro.neto\Desktop\Lead Campanha\backend"
-npm install
-npx prisma generate
-npx prisma db push
-node prisma/seed.js
-npm run dev
+### **Opção 4: Painel Admin/Configurações** ⚙️
+**Objetivo**: Gestão administrativa completa
+- [ ] Gerenciamento de usuários e equipes
+- [ ] Templates de mensagens personalizáveis
+- [ ] Configurações do sistema
+- [ ] Controle de limites e permissões
+- [ ] Auditoria e logs
+
+### **Opção 5: WhatsApp Cloud API Real** 📱
+**Objetivo**: Integração real com Meta WhatsApp Business
+- [ ] Integração real com Meta WhatsApp Cloud API
+- [ ] Envio/recebimento de mensagens em tempo real
+- [ ] Status de entrega e leitura
+- [ ] Suporte a mídia (imagens, documentos, áudios)
+- [ ] Webhooks para mensagens recebidas
+
+## 🔄 Fluxo de Desenvolvimento
+
+### **GitHub + Vercel Workflow**
+1. **Desenvolvimento Local**: Fazer alterações no código
+2. **Commit & Push**: `git add .` → `git commit -m "feat: descrição"` → `git push`
+3. **Auto-Deploy**: Vercel detecta o push e faz deploy automático
+4. **Teste**: Verificar funcionamento na URL de produção
+5. **Documentação**: Atualizar este README com progresso
+
+### **Comandos Úteis**
+```bash
+# Frontend (desenvolvimento)
+cd frontend && npm run dev
+
+# Backend (desenvolvimento)
+cd backend && npm run dev
+
+# Banco de dados
+cd backend && npm run migrate
+cd backend && npm run seed
+
+# Deploy manual (se necessário)
+vercel --prod
 ```
 
-O backend estará rodando em **http://localhost:4000**
+## 🎨 Design System
 
-#### 2. Frontend
+### **Cores Principais**
+- **Primary**: Blue (#3B82F6)
+- **Success**: Green (#10B981)
+- **Warning**: Yellow (#F59E0B)
+- **Error**: Red (#EF4444)
 
-```powershell
-cd "c:\Users\pedro.neto\Desktop\Lead Campanha\frontend"
-npm install
-npm run dev
-```
+### **Componentes Base**
+- Layout responsivo (mobile-first)
+- Sidebar navigation
+- Cards e modais
+- Formulários padronizados
+- Tabelas com paginação
 
-O frontend estará rodando em **http://localhost:5173**
+## 📊 Métricas de Sucesso
 
-## 🔑 Credenciais de Teste
+### **KPIs do Projeto**
+- [ ] Taxa de conversão de leads
+- [ ] Tempo médio de resposta
+- [ ] Satisfação do usuário (NPS)
+- [ ] Performance da aplicação (< 3s load time)
+- [ ] Uptime do sistema (> 99.5%)
 
-**Administrador:**
-- Email: `admin@leadcampanha.com`
-- Senha: `admin123`
+## 🚀 Tecnologias
 
-**Consultores (5 usuários):**
-- Email: `user1@leadcampanha.com` até `user5@leadcampanha.com`
-- Senha: `user123`
+### **Frontend Stack**
+- React 18 + Vite
+- Tailwind CSS
+- React Router
+- Context API
+- Axios
 
-## � Páginas Disponíveis
+### **Backend Stack**
+- Node.js + Express
+- Prisma ORM
+- PostgreSQL
+- JWT Authentication
+- bcryptjs
 
-Após login, acesse:
-- `#atendimentos` - Chat/Atendimentos (3 colunas)
-- `#contatos` - CRM com listagem completa de leads
-- `#kanban` - Dashboard estilo Kanban
-- `#tarefas` - Gerenciamento de tarefas
-- `#relatorios` - Relatórios e indicadores
-- `#configuracoes` - Configurações (admin only)
+### **DevOps & Deploy**
+- GitHub (Version Control)
+- Vercel (Deploy + Hosting)
+- Vercel Postgres (Database)
 
-## �📡 Endpoints da API
+## 📝 Atualizações Recentes
 
-### Públicos
-- `POST /api/login` - Fazer login
-- `POST /api/webhook` - Webhook WhatsApp (cria lead, classifica com IA e distribui)
-- `GET /api/health` - Health check
-
-### Autenticados (Header: `Authorization: Bearer <token>`)
-- `GET /api/me` - Dados do usuário atual
-- `GET /api/users` - Listar usuários
-- `GET /api/leads` - Listar leads (filtros: stage, priority, assignedTo)
-- `GET /api/leads/:id` - Detalhes de um lead
-- `POST /api/leads` - Criar lead manualmente
-- `PATCH /api/leads/:id` - Atualizar lead
-- `POST /api/leads/:id/messages` - Enviar mensagem
-- `GET /api/tasks` - Listar tarefas
-- `POST /api/tasks` - Criar tarefa
-- `PATCH /api/tasks/:id` - Atualizar tarefa
-- `DELETE /api/tasks/:id` - Excluir tarefa
-- `GET /api/tags` - Listar tags
-
-### Admin apenas
-- `POST /api/distribute` - Distribuir leads não atribuídos
-- `GET /api/reports/overview` - Relatórios gerais
-- `GET /api/reports/analytics` - Analytics com filtro de data
-- `POST /api/leads/bulk` - Ações em massa (reatribuir, excluir)
-- `DELETE /api/leads/:id` - Excluir lead
-- `GET /api/leads/export/csv` - Exportar leads em CSV
-- `POST /api/tags` - Criar tag
-- `DELETE /api/tags/:id` - Excluir tag
-- `PATCH /api/users/:id` - Atualizar usuário
-
-## 🤖 Webhook WhatsApp
-
-Simule uma mensagem do WhatsApp:
-
-```powershell
-Invoke-RestMethod -Method Post -Uri http://localhost:4000/api/webhook -ContentType 'application/json' -Body (ConvertTo-Json @{phone='5511999999999'; text='Quero comprar um imóvel'; name='Cliente Teste'})
-```
-
-A IA irá:
-1. Classificar a prioridade (high/medium/low)
-2. Detectar interesse (Compra, Investimento, Aluguel)
-3. Criar o lead
-4. Distribuir automaticamente via round-robin
-5. Enviar resposta automática
-
-## 📚 Documentação
-
-### 🎯 Primeiros Passos
-- **[CHECKLIST.md](CHECKLIST.md)** - ✅ Lista de verificação completa (COMECE AQUI!)
-- **[SETUP_GITHUB.md](SETUP_GITHUB.md)** - 📦 Guia para GitHub e Codespaces
-- **[QUICKSTART.md](QUICKSTART.md)** - ⚡ Resumo rápido dos comandos
-
-### 🌐 Ambiente e Integração
-- **[CODESPACES_README.md](CODESPACES_README.md)** - 🌐 Detalhes do GitHub Codespaces
-- **[N8N_INTEGRATION.md](N8N_INTEGRATION.md)** - 🤖 Integração com n8n Cloud
-
-### 📖 Documentação Técnica
-- **[GUIA_COMPLETO.md](GUIA_COMPLETO.md)** - 📖 Guia de uso geral do sistema
-- **[GUIA_MODULOS_1-4.md](GUIA_MODULOS_1-4.md)** - 📋 Funcionalidades detalhadas
-- **[CHAT_GUIA.md](CHAT_GUIA.md)** - 💬 Documentação do módulo de chat
-- **[ARQUITETURA.md](ARQUITETURA.md)** - 🏗️ Arquitetura técnica
-- **[RESUMO_IMPLEMENTACAO.md](RESUMO_IMPLEMENTACAO.md)** - 📊 Resumo técnico
-
-## 🎯 Roadmap
-
-### ✅ Implementado (v2.0)
-- ✅ Autenticação e permissões
-- ✅ Webhook WhatsApp + IA
-- ✅ Distribuição round-robin
-- ✅ Chat/Atendimentos (3 colunas)
-- ✅ CRM Completo (Contatos + Kanban)
-- ✅ Sistema de Tarefas
-- ✅ Relatórios e Indicadores
-- ✅ Configurações Admin
-
-### 🔜 Próximas Features
-- [ ] ✅ **WhatsApp Cloud API real** (Meta Business) - em desenvolvimento
-- [ ] ✅ **WebSocket real-time** (Socket.io) - em desenvolvimento
-- [ ] Integração com OpenAI GPT-4
-- [ ] Templates de mensagens
-- [ ] Notificações push
-- [ ] Relatórios exportáveis (PDF)
-- [ ] Automações avançadas
-- [ ] App mobile
-
-## 📊 Estatísticas do Projeto
-
-- **Páginas:** 6 (Login, Atendimentos, Dashboard, Contatos, Tarefas, Relatórios, Configurações)
-- **Endpoints API:** 25+
-- **Modelos de Dados:** 6 (User, Lead, Message, LeadLog, Task, Tag)
-- **Linhas de Código:** ~4.000+
-- **Tecnologias:** React, Node.js, Prisma, SQLite, JWT, Tailwind
-
-## 📊 Arquitetura
-
-- **Backend:** Node.js + Express + Prisma + SQLite
-- **Frontend:** React 18 + Vite 5 + Tailwind CSS 3
-- **Auth:** JWT com SHA256
-- **Real-time:** Polling (3-5s) - evolui para WebSocket
-- **Database:** SQLite (dev) - pode migrar para PostgreSQL (prod)
+### **[24/10/2024]** - Setup Inicial Completo
+- ✅ Configuração inicial do projeto
+- ✅ Estrutura de pastas definida
+- ✅ Deploy no Vercel configurado
+- ✅ Banco de dados criado e populado
+- ✅ Sistema de autenticação implementado
 
 ---
 
-**Versão:** 2.0  
-**Status:** ✅ Completo e Funcional  
-**Desenvolvido para:** Campanhas imobiliárias com foco em atendimento automatizado e distribuição inteligente de leads  
-**Data:** Outubro 2025
+## 📞 Próxima Sessão de Desenvolvimento
+
+**Foco Atual**: Implementação da Página de Contatos (Opção 1)
+- Iniciar pela listagem de leads
+- Implementar busca e filtros
+- Adicionar ações em massa
+
+**Lembretes**:
+- Sempre fazer push para GitHub para atualizar Vercel
+- Atualizar este README com progresso
+- Testar em produção após cada deploy
+- Documentar novas funcionalidades
+
+---
+
+*Última atualização: 24/10/2024*
+*Desenvolvido por: Pedro Neto*
