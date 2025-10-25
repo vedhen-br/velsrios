@@ -15,6 +15,11 @@ const distributor = new Distributor(prisma)
 // Health check
 router.get('/health', (req, res) => res.json({ ok: true }))
 
+// Simple ping endpoint (sanity check)
+router.get('/ping', (req, res) => {
+  res.status(200).json({ pong: true, timestamp: new Date().toISOString() })
+})
+
 // Login
 router.post('/login', async (req, res) => {
   const { email, password } = req.body
