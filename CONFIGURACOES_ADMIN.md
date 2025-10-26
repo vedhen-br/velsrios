@@ -4,6 +4,12 @@
 
 O admin agora possui um painel completo de configurações para gerenciar todos os aspectos do sistema e controlar limitações e permissões dos usuários.
 
+Endpoints úteis (Admin)
+- `GET /api/whatsapp/settings` – busca status da integração (apenas Admin)
+- `PATCH /api/whatsapp/settings` – salva Phone Number ID, Access Token e Verify Token
+- `POST /api/whatsapp/test` – envia mensagem de teste (se configurado)
+- Swagger com todas as rotas: `/api/docs`
+
 ## 📋 Funcionalidades Implementadas
 
 ### 1. **Gerenciamento de Usuários** 👥
@@ -59,9 +65,9 @@ O admin agora possui um painel completo de configurações para gerenciar todos 
 - ⏱️ Alertar sobre leads sem resposta após X horas
 
 #### Integração WhatsApp:
-- 💬 Webhook URL configurável
-- 💬 Status da integração
-- 💬 Botão para configurar WhatsApp Cloud API
+- 💬 Webhook URL: `https://<BACKEND>/api/webhook` (Meta → Verify Token em `whatsapp_verify_token`)
+- 💬 Status da integração (pelo endpoint `/api/whatsapp/settings`)
+- 💬 Botão/fluxo para configurar WhatsApp Cloud API (Phone Number ID + Access Token)
 
 #### Backup e Manutenção:
 - 💾 Backup automático diário

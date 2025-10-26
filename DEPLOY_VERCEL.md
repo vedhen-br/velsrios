@@ -1,6 +1,9 @@
-# 🚀 Deploy no Vercel - Guia Completo
+# 🚀 Deploy - Vercel (Frontend) + Render (Backend)
 
-Este guia explica como fazer deploy do **Lead Campanha CRM** no **Vercel** (sem Docker).
+Este guia descreve o fluxo adotado em produção:
+
+- Frontend estático na Vercel (React + Vite)
+- Backend dedicado no Render (Node/Express + Prisma)
 
 ---
 
@@ -15,29 +18,28 @@ Este guia explica como fazer deploy do **Lead Campanha CRM** no **Vercel** (sem 
 - **SSL gratuito** e CDN automático
 - **Sem Docker** - mais simples e rápido
 
-### 📊 **Arquitetura:**
+### 📊 Arquitetura (atual)
 ```
-GitHub Repo → Vercel Deploy → Production URLs
-     ↓              ↓              ↓
-  Frontend    Static Site    https://seu-app.vercel.app
-  Backend     API Routes    https://seu-app.vercel.app/api/*
-  Database    Postgres      Vercel Postgres (integrado)
+GitHub (main)
+ ├─ Vercel → builda frontend (Vite) → https://velsrios.vercel.app
+ └─ Render → executa backend (Express/Prisma) → https://lead-campanha-api.onrender.com
+Banco: Neon Postgres (SSL obrigatório)
 ```
 
 ---
 
 ## 🔧 **Preparação do Projeto**
 
-### 1. **Estrutura Atual vs Vercel:**
+### 1. Estrutura do projeto
 
 ```diff
 Lead Campanha/
-├── frontend/          # ✅ Deploy como Static Site
-├── backend/           # 🔄 Vira Serverless Functions
+├── frontend/          # ✅ Deploy como Static Site (Vercel)
+├── backend/           # ✅ API dedicada (Render)
 ├── .devcontainer/     # ❌ Não usado (só para Codespaces)
-+ ├── api/             # ✅ Nova pasta para Vercel Functions  
-+ ├── vercel.json      # ✅ Configuração do Vercel
-+ └── prisma/          # 🔄 Migra SQLite → PostgreSQL
+  ├── api/             # (Opcional) Funções antigas (não usadas em prod)
+  ├── vercel.json      # Rewrites do SPA
+  └── prisma/          # Schema alternativo (referência)
 ```
 
 ### 2. **Arquivos Já Criados:**
@@ -67,7 +69,20 @@ Lead Campanha/
 
 ---
 
-## 🗄️ **Passo 2: Configurar Banco PostgreSQL**
+## 🗄️ Banco de dados (Produção)
+
+Em produção usamos Neon Postgres configurado no Render (backend). No Render, defina:
+
+```
+POSTGRES_PRISMA_URL
+POSTGRES_URL_NON_POOLING
+JWT_SECRET
+FRONTEND_URL (ex.: https://velsrios.vercel.app)
+PORT (4000)
+AUTO_SEED (opcional), ADMIN_EMAIL, ADMIN_PASSWORD
+```
+
+Obs.: A seção abaixo sobre Vercel Postgres é legado; mantenha-a apenas como referência.
 
 ### 2.1. **Criar Vercel Postgres:**
 1. No painel do Vercel → **Storage** → **Create Database**
@@ -96,7 +111,20 @@ npx prisma migrate dev --name init-postgres
 
 ---
 
-## ⚙️ **Passo 3: Configurar Variáveis de Ambiente**
+## ⚙️ Variáveis de Ambiente – Vercel (Frontend)
+
+Em Project → Settings → Environment Variables, defina (Production):
+
+```
+VITE_API_URL = https://lead-campanha-api.onrender.com/api
+VITE_WS_URL  = https://lead-campanha-api.onrender.com
+```
+
+Após salvar, faça Redeploy (as envs só entram na build).
+
+---
+
+## ⚙️ **Passo 3: Configurar Variáveis de Ambiente** (Legado – Vercel Postgres)
 
 ### 3.1. **No Painel Vercel:**
 1. **Projeto** → **Settings** → **Environment Variables**
@@ -132,7 +160,7 @@ NODE_ENV="development"
 
 ---
 
-## 🚀 **Passo 4: Deploy e Configuração**
+## 🚀 Deploy e Configuração
 
 ### 4.1. **Primeiro Deploy:**
 ```bash
@@ -144,10 +172,10 @@ git push origin main
 
 O Vercel fará deploy automático em ~2-3 minutos.
 
-### 4.2. **URLs Geradas:**
-- **Frontend:** `https://velsrios.vercel.app`
-- **API:** `https://velsrios.vercel.app/api/health`
-- **Admin:** `https://velsrios.vercel.app/api/`
+### URLs de Produção
+- Frontend: `https://velsrios.vercel.app`
+- Backend: `https://lead-campanha-api.onrender.com`
+- Docs API (Swagger): `https://lead-campanha-api.onrender.com/api/docs`
 
 ### 4.3. **Seed do Banco:**
 ```bash
@@ -157,15 +185,15 @@ npx prisma db seed
 
 ---
 
-## 🧪 **Passo 5: Testes e Validação**
+## 🧪 Testes e Validação
 
 ### 5.1. **Testar Endpoints:**
 ```bash
 # Health check
-curl https://velsrios.vercel.app/api/health
+curl https://lead-campanha-api.onrender.com/api/health
 
 # Login
-curl -X POST https://velsrios.vercel.app/api/login \
+curl -X POST https://lead-campanha-api.onrender.com/api/login \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@leadcampanha.com","password":"admin123"}'
 ```
@@ -190,12 +218,10 @@ npm run dev
 # Acesso: https://seu-codespace-5173.app.github.dev
 ```
 
-### Produção (Vercel):
-```bash
-# Push para deploy automático
-git push origin main
-# Deploy: https://velsrios.vercel.app (automático)
-```
+### Produção (Fluxo)
+1) `git push origin main`
+2) Vercel builda o frontend; Render inicia o backend com `db:deploy && start`
+3) Validar `/api/health` e `/api/docs` no Render e UI na Vercel
 
 ---
 
@@ -203,12 +229,12 @@ git push origin main
 
 ### 5.1. **URL do Webhook:**
 ```
-https://velsrios.vercel.app/api/webhook/whatsapp
+https://lead-campanha-api.onrender.com/api/webhook
 ```
 
 ### 5.2. **Meta Business (Facebook):**
 1. **App Settings** → **WhatsApp** → **Configuration**
-2. **Webhook URL:** `https://velsrios.vercel.app/api/webhook/whatsapp`  
+2. **Webhook URL:** `https://lead-campanha-api.onrender.com/api/webhook`  
 3. **Verify Token:** (mesmo valor da env var)
 4. **Subscribe:** `messages`
 
