@@ -1,0 +1,10 @@
+# Ignore legacy/unnecessary content for the frontend build
+api/
+prisma/
+backend/
+.github/
+.devcontainer/
+node_modules/
+**/*.md
+!README.md
+!TROUBLESHOOTING.md
