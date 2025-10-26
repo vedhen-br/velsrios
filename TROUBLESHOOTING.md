@@ -35,7 +35,7 @@ Se o frontend não refletir mudanças após o deploy:
 
 
 ### **Erro**: `.env` não encontrado
-**Sintomas**: 
+**Sintomas**:
 ```
 Error: Cannot read environment variables
 ```
@@ -208,11 +208,11 @@ const Component = () => {
 // ✅ Correto
 const Component = () => {
   const [timestamp, setTimestamp] = useState(null)
-  
+
   useEffect(() => {
     setTimestamp(Date.now())
   }, [])
-  
+
   return <div>{timestamp}</div>
 }
 ```
@@ -313,7 +313,7 @@ const authMiddleware = (req, res, next) => {
   if (!token) {
     return res.status(401).json({ error: 'Access denied' })
   }
-  
+
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET)
     req.user = decoded // ← Importante!
@@ -448,7 +448,7 @@ Quando encontrar um erro novo, use este template:
 
 ```markdown
 ### **Erro**: [Descrição breve do erro]
-**Sintomas**: 
+**Sintomas**:
 ```
 [Mensagem de erro exata]
 ```

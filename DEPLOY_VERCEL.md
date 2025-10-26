@@ -11,7 +11,7 @@ Este guia descreve o fluxo adotado em produção:
 
 ### ✅ **Vantagens:**
 - **Deploy automático** a cada git push
-- **Serverless** - escala automaticamente  
+- **Serverless** - escala automaticamente
 - **Zero configuração** de servidor
 - **Postgres integrado** (Vercel Postgres)
 - **Edge Functions** para performance global
@@ -37,15 +37,13 @@ Lead Campanha/
 ├── frontend/          # ✅ Deploy como Static Site (Vercel)
 ├── backend/           # ✅ API dedicada (Render)
 ├── .devcontainer/     # ❌ Não usado (só para Codespaces)
-  ├── api/             # (Opcional) Funções antigas (não usadas em prod)
+  ├── api/             # Removido (funções serverless legadas)
   ├── vercel.json      # Rewrites do SPA
-  └── prisma/          # Schema alternativo (referência)
+  └── prisma/          # Removido (schema legado)
 ```
 
 ### 2. **Arquivos Já Criados:**
 - ✅ `vercel.json` - Configuração principal
-- ✅ `api/index.js` - Entry point das Functions
-- ✅ `prisma/schema-postgres.prisma` - Schema PostgreSQL
 
 ---
 
@@ -59,7 +57,7 @@ Lead Campanha/
 1. Clique em **"New Project"**
 2. **Import Git Repository**
 3. Selecione: `vedhen-br/velsrios`
-4. **Framework Preset:** "Other" 
+4. **Framework Preset:** "Other"
 5. **Root Directory:** `/` (raiz)
 
 ### 1.3. **Configurar Build:**
@@ -86,7 +84,7 @@ Obs.: A seção abaixo sobre Vercel Postgres é legado; mantenha-a apenas como r
 
 ### 2.1. **Criar Vercel Postgres:**
 1. No painel do Vercel → **Storage** → **Create Database**
-2. Tipo: **Postgres** 
+2. Tipo: **Postgres**
 3. Nome: `lead-campanha-db`
 4. Region: **Washington, D.C. (iad1)** (mais próximo do Brasil)
 
@@ -102,11 +100,12 @@ POSTGRES_PASSWORD="..."
 POSTGRES_DATABASE="..."
 ```
 
-### 2.3. **Migrar Schema:**
+### 2.3. **Migrar Schema (Legado atualizado):**
 ```bash
-# No Codespaces ou local:
-cp prisma/schema-postgres.prisma prisma/schema.prisma
-npx prisma migrate dev --name init-postgres
+# O schema legado na raiz foi removido.
+# Para testes locais com Postgres, use o schema do backend:
+cd backend
+npx prisma migrate dev --name init
 ```
 
 ---
@@ -234,7 +233,7 @@ https://lead-campanha-api.onrender.com/api/webhook
 
 ### 5.2. **Meta Business (Facebook):**
 1. **App Settings** → **WhatsApp** → **Configuration**
-2. **Webhook URL:** `https://lead-campanha-api.onrender.com/api/webhook`  
+2. **Webhook URL:** `https://lead-campanha-api.onrender.com/api/webhook`
 3. **Verify Token:** (mesmo valor da env var)
 4. **Subscribe:** `messages`
 
@@ -246,7 +245,7 @@ https://lead-campanha-api.onrender.com/api/webhook
 **Causa:** Estrutura de pastas incorreta
 **Solução:** Verificar `vercel.json` e paths das imports
 
-### ❌ **Erro: "Database connection failed"**  
+### ❌ **Erro: "Database connection failed"**
 **Causa:** Env vars do Postgres não configuradas
 **Solução:** Copiar vars do painel Vercel Postgres
 
@@ -264,7 +263,7 @@ https://lead-campanha-api.onrender.com/api/webhook
 
 ### **Hobby (Gratuito):**
 - ✅ **100GB bandwidth**
-- ✅ **1000 serverless executions**  
+- ✅ **1000 serverless executions**
 - ✅ **1 concurrent build**
 - ✅ **Postgres:** 60h compute time
 - ⏱️ **Function timeout:** 10 segundos
@@ -273,7 +272,7 @@ https://lead-campanha-api.onrender.com/api/webhook
 - ✅ **1TB bandwidth**
 - ✅ **Unlimited executions**
 - ✅ **12 concurrent builds**
-- ✅ **Postgres:** 1000h compute time  
+- ✅ **Postgres:** 1000h compute time
 - ⏱️ **Function timeout:** 60 segundos
 
 ---

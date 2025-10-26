@@ -44,25 +44,25 @@ router.get('/webhook', (req, res) => {
   const challenge = req.query['hub.challenge']
 
   const result = whatsappService.verifyWebhook(mode, token, challenge)
-  
+
   if (result) {
     return res.status(200).send(result)
   }
-  
+
   res.status(403).send('Forbidden')
 })
 
 router.post('/webhook', async (req, res) => {
   try {
     const io = req.app.get('io')
-    
+
     // Processa webhook real do WhatsApp Cloud API
     const result = await whatsappService.processWebhook(req.body, io)
-    
+
     if (result.success) {
       return res.status(200).json({ success: true })
     }
-    
+
     return res.status(400).json({ error: result.error })
   } catch (error) {
     console.error('Erro no webhook:', error)
@@ -88,39 +88,39 @@ router.get('/leads/stats', async (req, res) => {
   try {
     const now = new Date()
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    
+
     // Total de leads
     const totalLeads = await prisma.lead.count()
-    
+
     // Leads de hoje
     const todayLeads = await prisma.lead.count({
       where: {
         createdAt: { gte: today }
       }
     })
-    
+
     // Agentes online (usuarios ativos/disponíveis)
     const onlineAgents = await prisma.user.count({
-      where: { 
+      where: {
         available: true,
         role: { not: 'admin' }
       }
     })
-    
+
     // Leads em atendimento (stages ativos)
     const inProgress = await prisma.lead.count({
       where: {
         stage: { in: ['contacted', 'qualified', 'proposal', 'negotiation'] }
       }
     })
-    
+
     // Leads convertidos (fechados)
     const converted = await prisma.lead.count({
       where: {
         stage: 'closed'
       }
     })
-    
+
     res.json({
       totalLeads,
       todayLeads,
@@ -230,6 +230,15 @@ router.post('/leads', async (req, res) => {
   await prisma.leadLog.create({
     data: { leadId: lead.id, action: 'created', message: `Lead criado manualmente por ${req.user.name}` }
   })
+  // Notificar via socket (novo lead)
+  try {
+    const io = req.app.get('io')
+    if (io) {
+      io.emit('lead:new', { lead, userId: assignedTo })
+    }
+  } catch (e) {
+    // ignore
+  }
   res.status(201).json(lead)
 })
 
@@ -289,7 +298,19 @@ router.post('/leads/:id/messages', async (req, res) => {
         action: `Mensagem enviada via WhatsApp${result.simulated ? ' (simulada)' : ''}`
       }
     })
-
+    // Notificar via socket
+    try {
+      const io = req.app.get('io')
+      if (io) {
+        io.to(`lead_${parseInt(req.params.id)}`).emit('message:new', {
+          leadId: parseInt(req.params.id),
+          leadName: lead.name,
+          message: result.message
+        })
+      }
+    } catch (e) {
+      // ignore
+    }
     return res.status(201).json(result.message)
   }
 
@@ -359,40 +380,40 @@ router.delete('/leads/:id', async (req, res) => {
 router.get('/leads/atendimento', async (req, res) => {
   try {
     const { stage, assignedTo } = req.query
-    
+
     let where = {}
-    
+
     // Se não é admin, vê apenas os próprios leads
     if (req.user.role !== 'admin') {
       where.assignedTo = req.user.id
     }
-    
+
     // Filtros opcionais
     if (stage) where.stage = stage
     if (assignedTo && req.user.role === 'admin') where.assignedTo = assignedTo
-    
+
     const leads = await prisma.lead.findMany({
       where,
       include: {
         assignedUser: { select: { id: true, name: true, email: true } },
-        messages: { 
-          orderBy: { createdAt: 'desc' }, 
+        messages: {
+          orderBy: { createdAt: 'desc' },
           take: 1 // Apenas a última mensagem para a lista
         },
         tasks: { where: { completed: false } },
         _count: { select: { messages: true, tasks: true } }
       },
-      orderBy: { 
+      orderBy: {
         updatedAt: 'desc' // Mais recentemente atualizados primeiro
       }
     })
-    
+
     // Adicionar campo de última interação
     const leadsWithLastInteraction = leads.map(lead => ({
       ...lead,
       lastInteraction: lead.messages[0]?.createdAt || lead.updatedAt
     }))
-    
+
     res.json(leadsWithLastInteraction)
   } catch (error) {
     console.error('Erro ao buscar leads para atendimento:', error)
@@ -403,7 +424,7 @@ router.get('/leads/atendimento', async (req, res) => {
 // Bulk actions (admin only)
 router.post('/leads/bulk', adminOnly, async (req, res) => {
   const { action, leadIds, assignTo, tagIds } = req.body
-  
+
   if (action === 'delete') {
     for (const id of leadIds) {
       await prisma.message.deleteMany({ where: { leadId: id } })
@@ -413,7 +434,7 @@ router.post('/leads/bulk', adminOnly, async (req, res) => {
     await prisma.lead.deleteMany({ where: { id: { in: leadIds } } })
     return res.json({ success: true, deleted: leadIds.length })
   }
-  
+
   if (action === 'assign') {
     await prisma.lead.updateMany({
       where: { id: { in: leadIds } },
@@ -421,7 +442,7 @@ router.post('/leads/bulk', adminOnly, async (req, res) => {
     })
     return res.json({ success: true, assigned: leadIds.length })
   }
-  
+
   res.status(400).json({ error: 'Ação inválida' })
 })
 
@@ -430,12 +451,12 @@ router.get('/leads/export/csv', adminOnly, async (req, res) => {
   const leads = await prisma.lead.findMany({
     include: { assignedUser: true }
   })
-  
+
   let csv = 'ID,Nome,Telefone,Email,Prioridade,Estágio,Status,Responsável,Criado\n'
   leads.forEach(lead => {
     csv += `${lead.id},${lead.name || ''},${lead.phone},${lead.email || ''},${lead.priority},${lead.stage},${lead.status},${lead.assignedUser?.name || ''},${lead.createdAt}\n`
   })
-  
+
   res.header('Content-Type', 'text/csv')
   res.attachment('leads.csv')
   res.send(csv)
@@ -444,7 +465,7 @@ router.get('/leads/export/csv', adminOnly, async (req, res) => {
 // List all tasks
 router.get('/tasks', async (req, res) => {
   const where = req.user.role === 'admin' ? {} : { userId: req.user.id }
-  
+
   const tasks = await prisma.task.findMany({
     where,
     include: {
@@ -453,7 +474,7 @@ router.get('/tasks', async (req, res) => {
     },
     orderBy: { dueDate: 'asc' }
   })
-  
+
   res.json(tasks)
 })
 
@@ -461,11 +482,11 @@ router.get('/tasks', async (req, res) => {
 router.delete('/tasks/:id', async (req, res) => {
   const task = await prisma.task.findUnique({ where: { id: req.params.id } })
   if (!task) return res.status(404).json({ error: 'Tarefa não encontrada' })
-  
+
   if (req.user.role !== 'admin' && task.userId !== req.user.id) {
     return res.status(403).json({ error: 'Acesso negado' })
   }
-  
+
   await prisma.task.delete({ where: { id: req.params.id } })
   res.json({ success: true })
 })
@@ -479,7 +500,7 @@ router.get('/tags', async (req, res) => {
 router.post('/tags', adminOnly, async (req, res) => {
   const { name, color } = req.body
   if (!name) return res.status(400).json({ error: 'name obrigatório' })
-  
+
   const tag = await prisma.tag.create({
     data: { name, color: color || '#gray' }
   })
@@ -525,19 +546,19 @@ router.get('/reports/overview', adminOnly, async (req, res) => {
 // Advanced reports with date filters
 router.get('/reports/analytics', adminOnly, async (req, res) => {
   const { startDate, endDate } = req.query
-  
+
   const dateFilter = {}
   if (startDate) dateFilter.gte = new Date(startDate)
   if (endDate) dateFilter.lte = new Date(endDate)
-  
+
   const where = Object.keys(dateFilter).length > 0 ? { createdAt: dateFilter } : {}
-  
+
   // Leads por dia
   const leads = await prisma.lead.findMany({
     where,
     select: { createdAt: true, stage: true, assignedTo: true }
   })
-  
+
   // Taxa de conversão por estágio
   const conversionRates = {
     new: leads.length,
@@ -547,14 +568,14 @@ router.get('/reports/analytics', adminOnly, async (req, res) => {
     negotiation: leads.filter(l => ['negotiation', 'closed'].includes(l.stage)).length,
     closed: leads.filter(l => l.stage === 'closed').length
   }
-  
+
   // Leads por usuário
   const leadsByUser = {}
   leads.forEach(lead => {
     const userId = lead.assignedTo || 'unassigned'
     leadsByUser[userId] = (leadsByUser[userId] || 0) + 1
   })
-  
+
   res.json({
     totalLeads: leads.length,
     conversionRates,
@@ -565,26 +586,26 @@ router.get('/reports/analytics', adminOnly, async (req, res) => {
 // Update user (admin only)
 router.patch('/users/:id', adminOnly, async (req, res) => {
   const { available, maxLeads, role } = req.body
-  
+
   const user = await prisma.user.update({
     where: { id: req.params.id },
     data: { available, maxLeads, role }
   })
-  
+
   res.json(user)
 })
 
 // Update own profile
 router.patch('/users/profile', async (req, res) => {
   const { name, email, phone, avatar, bio, timezone } = req.body
-  
+
   try {
     const user = await prisma.user.update({
       where: { id: req.user.id },
       data: { name, email, phone, avatar, bio, timezone },
       select: { id: true, name: true, email: true, role: true, phone: true, avatar: true, bio: true, timezone: true }
     })
-    
+
     res.json(user)
   } catch (error) {
     res.status(400).json({ error: 'Erro ao atualizar perfil' })
@@ -594,31 +615,31 @@ router.patch('/users/profile', async (req, res) => {
 // Change password
 router.post('/users/change-password', async (req, res) => {
   const { currentPassword, newPassword } = req.body
-  
+
   if (!currentPassword || !newPassword) {
     return res.status(400).json({ error: 'Senhas obrigatórias' })
   }
-  
+
   const user = await prisma.user.findUnique({ where: { id: req.user.id } })
-  
+
   if (!comparePassword(currentPassword, user.password)) {
     return res.status(401).json({ error: 'Senha atual incorreta' })
   }
-  
+
   const hashedPassword = hashPassword(newPassword)
-  
+
   await prisma.user.update({
     where: { id: req.user.id },
     data: { password: hashedPassword }
   })
-  
+
   res.json({ success: true, message: 'Senha alterada com sucesso' })
 })
 
 // Update notification preferences
 router.patch('/users/notifications', async (req, res) => {
   const { emailNewLead, emailNewMessage, emailTaskDue, pushNewLead, pushNewMessage, soundEnabled } = req.body
-  
+
   // Store in user data/preferences (you can extend User model or use JSON field)
   await prisma.user.update({
     where: { id: req.user.id },
@@ -628,23 +649,23 @@ router.patch('/users/notifications', async (req, res) => {
       })
     }
   })
-  
+
   res.json({ success: true })
 })
 
 // Update preferences
 router.patch('/users/preferences', async (req, res) => {
   const { theme, language, dateFormat, timeFormat, autoRefresh, refreshInterval } = req.body
-  
+
   // Store in user data/preferences
   const currentData = JSON.parse(req.user.data || '{}')
   currentData.preferences = { theme, language, dateFormat, timeFormat, autoRefresh, refreshInterval }
-  
+
   await prisma.user.update({
     where: { id: req.user.id },
     data: { data: JSON.stringify(currentData) }
   })
-  
+
   res.json({ success: true })
 })
 
@@ -659,7 +680,7 @@ router.get('/whatsapp/settings', adminOnly, async (req, res) => {
     })
 
     const data = JSON.parse(admin?.data || '{}')
-    
+
     res.json({
       phoneNumberId: data.whatsapp_phone_number_id || '',
       accessToken: data.whatsapp_access_token ? '***CONFIGURADO***' : '',
@@ -692,9 +713,9 @@ router.patch('/whatsapp/settings', adminOnly, async (req, res) => {
     // Recarregar configurações no serviço
     await whatsappService.loadConfig()
 
-    res.json({ 
-      success: true, 
-      message: 'Configurações do WhatsApp atualizadas com sucesso' 
+    res.json({
+      success: true,
+      message: 'Configurações do WhatsApp atualizadas com sucesso'
     })
   } catch (error) {
     res.status(500).json({ error: 'Erro ao atualizar configurações' })
@@ -705,7 +726,7 @@ router.patch('/whatsapp/settings', adminOnly, async (req, res) => {
 router.post('/whatsapp/test', adminOnly, async (req, res) => {
   try {
     const { phoneNumber } = req.body
-    
+
     if (!phoneNumber) {
       return res.status(400).json({ error: 'Número de telefone obrigatório' })
     }
@@ -718,18 +739,18 @@ router.post('/whatsapp/test', adminOnly, async (req, res) => {
     )
 
     if (result.success && !result.simulated) {
-      res.json({ 
-        success: true, 
-        message: 'Mensagem de teste enviada com sucesso!' 
+      res.json({
+        success: true,
+        message: 'Mensagem de teste enviada com sucesso!'
       })
     } else if (result.simulated) {
-      res.json({ 
-        success: false, 
-        message: 'WhatsApp não configurado. Configure Phone Number ID e Access Token.' 
+      res.json({
+        success: false,
+        message: 'WhatsApp não configurado. Configure Phone Number ID e Access Token.'
       })
     } else {
-      res.status(500).json({ 
-        error: 'Erro ao enviar mensagem de teste' 
+      res.status(500).json({
+        error: 'Erro ao enviar mensagem de teste'
       })
     }
   } catch (error) {
