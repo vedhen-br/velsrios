@@ -5,9 +5,9 @@ export function getApiUrl() {
   // Highest priority: explicit env var (works on Vercel with dedicated backend)
   if (import.meta?.env?.VITE_API_URL) return import.meta.env.VITE_API_URL
 
-  // Check if running in Vercel production (only use origin/api if no env provided)
+  // On Vercel, default to dedicated backend if env var not set
   if (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')) {
-    return `${window.location.origin}/api`
+    return 'https://lead-campanha-api.onrender.com/api'
   }
 
   // Check if running in Codespaces
@@ -25,6 +25,11 @@ export function getApiUrl() {
 export function getWebSocketUrl() {
   // Highest priority: explicit env var
   if (import.meta?.env?.VITE_WS_URL) return import.meta.env.VITE_WS_URL
+
+  // On Vercel, default to dedicated backend if env var not set
+  if (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')) {
+    return 'https://lead-campanha-api.onrender.com'
+  }
 
   // Codespaces: map to forwarded 4000
   if (typeof window !== 'undefined' && window.location.hostname.includes('github.dev')) {
