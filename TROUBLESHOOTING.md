@@ -23,6 +23,16 @@
 ---
 
 ## 🔧 SETUP & CONFIGURAÇÃO
+### Nova arquitetura (Vercel + Render + Neon)
+Se o frontend não refletir mudanças após o deploy:
+1) Verifique se `frontend/src/main.jsx` importa `./App` (e não `./App-crm`).
+2) Em Vercel → Project → Settings → Environment Variables:
+  - `VITE_API_URL=https://<BACKEND-RENDER>/api`
+  - `VITE_WS_URL=https://<BACKEND-RENDER>`
+  - Clique em Save e faça Redeploy (envs só são aplicadas na build).
+3) Em Render (backend): defina `FRONTEND_URL=https://<SEU-VERCEL>.vercel.app`.
+4) Hard refresh no navegador (Ctrl+F5).
+
 
 ### **Erro**: `.env` não encontrado
 **Sintomas**: 
@@ -112,6 +122,18 @@ npm run seed
 ---
 
 ## 🌐 DEPLOY & VERCEL
+### Erro: frontend segue usando API errada (produção)
+**Sintomas**: UI “igual de antes”, sem novas features.
+
+**Causas comuns**:
+- `main.jsx` apontando para `App-crm` em vez de `App`.
+- `VITE_API_URL/VITE_WS_URL` não configuradas ou faltando redeploy.
+
+**Solução**:
+1. Ajustar `frontend/src/main.jsx` para `import App from './App'`.
+2. Definir envs em Vercel e redeploy.
+3. Confirmar no console do navegador o log `🌐 Environment` com os URLs do Render.
+
 
 ### **Erro**: Build falha no Vercel
 **Sintomas**:
@@ -225,6 +247,34 @@ app.use(cors({
 ---
 
 ## ⚙️ BACKEND (NODE.JS)
+### Erro: express-rate-limit com X-Forwarded-For no Render
+**Sintomas**:
+```
+ValidationError: The 'X-Forwarded-For' header is set but the Express 'trust proxy' setting is false
+```
+
+**Causa**: Aplicação atrás de proxy sem `trust proxy` habilitado.
+
+**Solução**:
+```js
+// backend/src/index.js
+const app = express()
+app.set('trust proxy', 1)
+```
+
+**Prevenção**: Em ambientes gerenciados (Render, Vercel), sempre habilitar `trust proxy`.
+
+### Erro: Prisma P1013 / URL inválida
+**Sintomas**:
+```
+Error validating datasource `db`: the URL must start with `postgresql://`
+```
+
+**Solução**:
+1. Remover aspas extras nas envs do Render/Neon.
+2. Usar `postgresql://` (não `postgres://`).
+3. Para Prisma, usar pooler em `POSTGRES_PRISMA_URL` e `POSTGRES_URL_NON_POOLING` no `directUrl`.
+
 
 ### **Erro**: JWT Token inválido
 **Sintomas**:
@@ -360,6 +410,12 @@ netstat -ano | findstr :3000
 
 # Verificar variáveis de ambiente
 echo $env:NODE_ENV
+
+# Backend health check local
+cd backend; npm run check:api
+
+# DB connectivity
+cd backend; npm run check:db
 ```
 
 ### **Git e Deploy**

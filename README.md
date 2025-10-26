@@ -18,50 +18,60 @@ Criar uma plataforma completa de CRM que permita:
 
 ## 🏗️ Arquitetura do Sistema
 
-### **Frontend** - React + Vite
-- **Framework**: React 18 com Vite
-- **Styling**: Tailwind CSS
-- **Estado**: Context API + Hooks
-- **Build**: Otimizado para produção
+### Frontend — React + Vite (Vercel)
+- React 18 + Vite + Tailwind
+- AuthContext com persistência (localStorage)
+- WebSocket (socket.io-client)
+- Notificações in-app (sino com badge) e browser (quando permitido)
+- Build estático hospedado na Vercel
 
-### **Backend** - Node.js + Prisma
-- **Runtime**: Node.js
-- **ORM**: Prisma com PostgreSQL
-- **Autenticação**: JWT
-- **API**: RESTful endpoints
+### Backend — Node.js + Express + Prisma (Render)
+- Prisma ORM conectado ao PostgreSQL (Neon)
+- Autenticação JWT
+- Socket.io (salas por lead e por usuário)
+- Endpoints REST (leads, users, tasks, reports, whatsapp, stats)
+- Segurança: helmet, rate limit, CORS
+- Docs: Swagger UI em `/api/docs`
+- Auto-seed opcional controlado por env
 
-### **Deploy** - GitHub + Vercel
-- **Repositório**: GitHub (vedhen-br/velsrios)
-- **Deploy**: Vercel com auto-deploy no push
-- **Banco**: PostgreSQL (Vercel Postgres)
+### Banco de Dados — Neon (Postgres)
+- URLs separadas: pooler (POSTGRES_PRISMA_URL) e non-pooling (POSTGRES_URL_NON_POOLING)
+- SSL obrigatório (sslmode=require)
+
+### Deploy e CI/CD
+- GitHub → push na branch `main` aciona:
+	- Render (backend): `npm run db:deploy && npm start`
+	- Vercel (frontend): build estático
+- Frontend aponta para o backend dedicado via `VITE_API_URL` e `VITE_WS_URL`
 
 ## 📁 Estrutura do Projeto
 
 ```
 Lead Campanha/
-├── 📱 frontend/          # React App (Vite + Tailwind)
-├── ⚙️ backend/           # Node.js API (Prisma + JWT)
-├── 🔗 api/              # Vercel Serverless Functions
-├── 📊 prisma/           # Schema e Migrações DB
-└── 📚 docs/             # Documentação e Guias
+├── frontend/            # React App (Vite + Tailwind)
+├── backend/             # API Node/Express (Prisma + JWT + Socket.io)
+├── prisma/              # Schema alternativo (referência)
+├── api/                 # (Opcional) Funções Vercel antigas, não usadas em prod
+└── .github/workflows/   # CI (build)
 ```
 
 ## ✅ Status de Implementação
 
 ### ✅ **CONCLUÍDO**
-- [x] Estrutura base do projeto (Frontend + Backend)
-- [x] Sistema de autenticação (JWT + Login)
-- [x] Banco de dados PostgreSQL com Prisma
-- [x] API básica (health, leads, login)
-- [x] Dashboard inicial com navegação
-- [x] Deploy configurado (GitHub + Vercel)
-- [x] Seeding do banco de dados
-- [x] Layout responsivo com Tailwind CSS
+- [x] Frontend + Backend integrados (Vercel + Render)
+- [x] Autenticação (JWT + login persistente)
+- [x] Banco de dados (Neon Postgres) com Prisma
+- [x] API (health, login, leads CRUD, tasks, stats, reports)
+- [x] Socket.io (tiping, salas, eventos de mensagem/lead)
+- [x] Notificações in-app e browser
+- [x] Docs Swagger em `/api/docs`
+- [x] Hardening: helmet, rate limit, CORS
+- [x] Auto-seed opcional
 
 ### 🚧 **EM PROGRESSO**
-- [ ] Sistema de leads básico
-- [ ] Interface de usuário aprimorada
-- [ ] Testes automatizados
+- [ ] Validação de produção completa (fluxos por perfil)
+- [ ] Relatórios avançados e gráficos
+- [ ] Testes automatizados (frontend e backend)
 
 ### 📋 **PLANEJADO**
 
@@ -110,27 +120,33 @@ Lead Campanha/
 
 ## 🔄 Fluxo de Desenvolvimento
 
-### **GitHub + Vercel Workflow**
+### **GitHub + Vercel + Render Workflow**
 1. **Desenvolvimento Local**: Fazer alterações no código
 2. **Commit & Push**: `git add .` → `git commit -m "feat: descrição"` → `git push`
-3. **Auto-Deploy**: Vercel detecta o push e faz deploy automático
-4. **Teste**: Verificar funcionamento na URL de produção
-5. **Documentação**: Atualizar este README com progresso
+3. **Auto-Deploy**:
+	- Render (backend) recebe o novo código e inicia `db:deploy` + `start`
+	- Vercel (frontend) builda o site estático
+4. **Ambiente**:
+	- Vercel: `VITE_API_URL` e `VITE_WS_URL` devem apontar para o backend do Render
+	- Render: `FRONTEND_URL` deve apontar para o domínio Vercel
+5. **Teste**: Verificar frontend (login, leads, notificações) e backend (`/api/health`, `/api/docs`)
+6. **Documentação**: Atualizar este README com progresso
 
 ### **Comandos Úteis**
-```bash
-# Frontend (desenvolvimento)
-cd frontend && npm run dev
+```powershell
+# Frontend (dev)
+cd frontend; npm run dev
 
-# Backend (desenvolvimento)
-cd backend && npm run dev
+# Backend (dev)
+cd backend; npm run dev
 
-# Banco de dados
-cd backend && npm run migrate
-cd backend && npm run seed
+# Prisma
+cd backend; npm run db:generate
+cd backend; npm run db:deploy
 
-# Deploy manual (se necessário)
-vercel --prod
+# Checks rápidos
+cd backend; npm run check:db
+cd backend; npm run check:api
 ```
 
 ## 🎨 Design System
@@ -159,33 +175,24 @@ vercel --prod
 
 ## 🚀 Tecnologias
 
-### **Frontend Stack**
-- React 18 + Vite
-- Tailwind CSS
-- React Router
-- Context API
-- Axios
+### Frontend
+- React 18 + Vite, Tailwind, Axios, socket.io-client
 
-### **Backend Stack**
-- Node.js + Express
-- Prisma ORM
-- PostgreSQL
-- JWT Authentication
-- bcryptjs
+### Backend
+- Node.js + Express, Prisma, Socket.io, JWT, Helmet, express-rate-limit, Swagger UI
 
-### **DevOps & Deploy**
-- GitHub (Version Control)
-- Vercel (Deploy + Hosting)
-- Vercel Postgres (Database)
+### Deploy
+- Vercel (frontend), Render (backend), Neon Postgres (DB), GitHub Actions (build)
 
 ## 📝 Atualizações Recentes
 
-### **[24/10/2024]** - Setup Inicial Completo
-- ✅ Configuração inicial do projeto
-- ✅ Estrutura de pastas definida
-- ✅ Deploy no Vercel configurado
-- ✅ Banco de dados criado e populado
-- ✅ Sistema de autenticação implementado
+### [25/10/2025]
+- Backend hardening (helmet, rate limit, CORS), Swagger em `/api/docs`
+- Auto-seed opcional no startup (controlado por `AUTO_SEED`)
+- Eventos socket para `lead:new` e `message:new`
+- Frontend com NotificationsProvider e sino no header
+- Dashboard e Atendimentos integrados a dados reais
+- CI (Actions) para build dos pacotes
 
 ---
 
@@ -204,5 +211,5 @@ vercel --prod
 
 ---
 
-*Última atualização: 24/10/2024*
+*Última atualização: 25/10/2025*
 *Desenvolvido por: Pedro Neto*
