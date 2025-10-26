@@ -10,6 +10,8 @@ import Relatorios from './pages/Relatorios'
 import Configuracoes from './pages/Configuracoes'
 import Perfil from './pages/Perfil'
 import Layout from './components/Layout'
+import ErrorBoundary from './components/ErrorBoundary'
+import DebugBar from './components/DebugBar'
 
 function AppContent() {
   const { user, loading } = useAuth()
@@ -64,9 +66,12 @@ function AppContent() {
   }
 
   return (
-    <Layout currentPage={currentPage}>
-      {renderPage()}
-    </Layout>
+    <ErrorBoundary>
+      <Layout currentPage={currentPage}>
+        {renderPage()}
+      </Layout>
+      <DebugBar />
+    </ErrorBoundary>
   )
 }
 
