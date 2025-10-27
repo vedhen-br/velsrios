@@ -432,7 +432,8 @@ router.post('/leads/:id/messages', async (req, res) => {
       data: {
         leadId: req.params.id,
         userId: req.user.id,
-        action: `Mensagem enviada via WhatsApp${result.simulated ? ' (simulada)' : ''}`
+        action: `Mensagem enviada via WhatsApp${result.simulated ? ' (simulada)' : ''}`,
+        message: text
       }
     })
     // Notificar via socket

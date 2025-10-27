@@ -207,7 +207,7 @@ export default function Atendimentos() {
       try {
         const res = await axios.get(`${API}/whatsapp/web/status`, { headers: { Authorization: `Bearer ${token}` } })
         if (res.data?.status) setWaStatus(res.data.status)
-      } catch {}
+      } catch { }
     }
     poll()
     const t = setInterval(poll, 10000)
@@ -485,9 +485,9 @@ export default function Atendimentos() {
                 </div>
                 <div className="flex gap-3 items-center">
                   {/* Status do WhatsApp Web */}
-                  <span className={`px-2 py-1 rounded-full text-xs ${waStatus==='connected'?'bg-green-100 text-green-700':waStatus==='qr' || waStatus==='connecting'?'bg-yellow-100 text-yellow-700':'bg-gray-100 text-gray-700'}`}
-                        title="Status do WhatsApp Web">
-                    {waStatus==='connected'?'WA Web online':waStatus==='qr'?'Aguardando QR':waStatus==='connecting'?'Conectando...':'WA Web offline'}
+                  <span className={`px-2 py-1 rounded-full text-xs ${waStatus === 'connected' ? 'bg-green-100 text-green-700' : waStatus === 'qr' || waStatus === 'connecting' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-700'}`}
+                    title="Status do WhatsApp Web">
+                    {waStatus === 'connected' ? 'WA Web online' : waStatus === 'qr' ? 'Aguardando QR' : waStatus === 'connecting' ? 'Conectando...' : 'WA Web offline'}
                   </span>
                   {/* Tags */}
                   <div className="hidden md:flex flex-wrap gap-2 max-w-[260px]">
@@ -521,7 +521,7 @@ export default function Atendimentos() {
                         <button onClick={async () => { await axios.patch(`${API}/leads/${selectedLead.id}`, { status: 'open', stage: 'contacted' }, { headers: { Authorization: `Bearer ${token}` } }); await fetchLeadDetails(selectedLead.id); await fetchLeads(); }} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">Reabrir lead</button>
                         <div className="h-px bg-gray-100 my-1" />
                         {/* Assumir lead */}
-                        {(!selectedLead.assignedTo || user.role==='admin') && (
+                        {(!selectedLead.assignedTo || user.role === 'admin') && (
                           <button onClick={async () => { await axios.patch(`${API}/leads/${selectedLead.id}/assign/self`, {}, { headers: { Authorization: `Bearer ${token}` } }); await fetchLeadDetails(selectedLead.id); await fetchLeads(); }} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">Assumir lead</button>
                         )}
                         <div className="h-px bg-gray-100 my-1" />
