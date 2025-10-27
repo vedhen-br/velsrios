@@ -316,6 +316,28 @@ router.patch('/leads/:id', async (req, res) => {
   res.json(updated)
 })
 
+// Assign lead to current user ("assumir lead")
+router.patch('/leads/:id/assign/self', async (req, res) => {
+  const lead = await prisma.lead.findUnique({ where: { id: req.params.id } })
+  if (!lead) return res.status(404).json({ error: 'Lead não encontrado' })
+
+  // Admin sempre pode assumir; user comum pode assumir se estiver sem responsável ou já for o responsável
+  if (req.user.role !== 'admin' && lead.assignedTo && lead.assignedTo !== req.user.id) {
+    return res.status(403).json({ error: 'Apenas admin pode reassumir de outro usuário' })
+  }
+
+  const updated = await prisma.lead.update({
+    where: { id: req.params.id },
+    data: { assignedTo: req.user.id }
+  })
+
+  await prisma.leadLog.create({
+    data: { leadId: lead.id, userId: req.user.id, action: 'assigned', message: `Lead assumido por ${req.user.name}` }
+  })
+
+  res.json(updated)
+})
+
 // Attach tag to lead
 router.post('/leads/:id/tags', async (req, res) => {
   try {
