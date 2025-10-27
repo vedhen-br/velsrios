@@ -384,26 +384,23 @@ router.post('/leads/:id/messages', async (req, res) => {
   let result
   try {
     if (whatsappWebService.isConnected && whatsappWebService.isConnected()) {
-      result = await whatsappWebService.sendMessage(
-        lead.phone,
-        text,
-        io,
-        req.params.id
-      )
+      // Tenta enviar via sessão QR (Baileys)
+      result = await whatsappWebService.sendMessage(lead.phone, text, io, req.params.id)
+      // Fallback: se falhar por qualquer motivo, tenta Cloud API (ou simulação)
+      if (!result?.success) {
+        console.warn('Baileys falhou, usando fallback Cloud API:', result?.error)
+        result = await whatsappService.sendMessage(lead.phone, text, io, req.params.id)
+      }
     } else {
-      result = await whatsappService.sendMessage(
-        lead.phone,
-        text,
-        io,
-        req.params.id
-      )
+      // Não conectado via QR — tenta Cloud API (ou simulação)
+      result = await whatsappService.sendMessage(lead.phone, text, io, req.params.id)
     }
   } catch (e) {
     console.error('Erro no envio de mensagem:', e)
     return res.status(500).json({ error: 'Erro ao enviar mensagem' })
   }
 
-  if (result.success) {
+  if (result?.success) {
     // Log de atividade
     await prisma.leadLog.create({
       data: {
@@ -428,7 +425,7 @@ router.post('/leads/:id/messages', async (req, res) => {
     return res.status(201).json(result.message)
   }
 
-  res.status(500).json({ error: 'Erro ao enviar mensagem' })
+  res.status(500).json({ error: result?.error || 'Erro ao enviar mensagem' })
 })
 
 // Create task
