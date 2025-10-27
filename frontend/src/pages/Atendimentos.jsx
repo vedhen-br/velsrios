@@ -243,8 +243,8 @@ export default function Atendimentos() {
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Dashboard - Atendimentos</h1>
-              <p className="text-gray-600">Visão geral do sistema de atendimentos WhatsApp + IA</p>
+              <h1 className="text-2xl font-bold text-gray-900">Atendimentos</h1>
+              <p className="text-gray-600">Conecte, converse e gerencie atendimentos via WhatsApp</p>
             </div>
             <div className="flex items-center gap-3">
               {isConnected ? (
@@ -333,7 +333,7 @@ export default function Atendimentos() {
           {/* Header */}
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-xl font-bold">Atendimentos</h2>
+              <h2 className="text-xl font-bold">Conversas</h2>
               {isConnected && (
                 <div className="flex items-center gap-1 text-xs text-green-600">
                   <div className="w-2 h-2 bg-green-600 rounded-full animate-pulse"></div>
@@ -384,33 +384,28 @@ export default function Atendimentos() {
               <div
                 key={lead.id}
                 onClick={() => setSelectedLead(lead)}
-                className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition ${selectedLead?.id === lead.id ? 'bg-blue-50' : ''
-                  }`}
+                className={`p-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition ${selectedLead?.id === lead.id ? 'bg-blue-50' : ''}`}
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-sm">{lead.name || lead.phone}</h3>
-                      {!lead.assignedTo && (
-                        <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded">Novo</span>
-                      )}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center text-sm font-semibold text-gray-600">
+                      {lead.name ? lead.name.charAt(0).toUpperCase() : lead.phone.slice(-2)}
                     </div>
-                    <p className="text-xs text-gray-600 mt-1 truncate">
-                      {lead.messages?.[lead.messages.length - 1]?.text || lead.interest || 'Sem mensagens'}
-                    </p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className={`text-xs px-2 py-0.5 rounded ${lead.priority === 'high' ? 'bg-red-100 text-red-700' :
-                        lead.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                          'bg-gray-100 text-gray-700'
-                        }`}>
-                        {lead.priority}
-                      </span>
-                      <span className="text-xs text-gray-500">{lead.stage}</span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-sm truncate">{lead.name || lead.phone}</h3>
+                        {!lead.assignedTo && (
+                          <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded">Novo</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-600 mt-1 truncate">{lead.messages?.[lead.messages.length - 1]?.text || lead.interest || 'Sem mensagens'}</p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className={`text-xs px-2 py-0.5 rounded ${lead.priority === 'high' ? 'bg-red-100 text-red-700' : lead.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-700'}`}>{lead.priority}</span>
+                        <span className="text-xs text-gray-500">{lead.stage}</span>
+                      </div>
                     </div>
                   </div>
-                  <div className="text-xs text-gray-500 ml-2">
-                    {formatTime(lead.lastInteraction || lead.createdAt)}
-                  </div>
+                  <div className="text-xs text-gray-500 ml-2">{formatTime(lead.lastInteraction || lead.createdAt)}</div>
                 </div>
               </div>
             ))}
@@ -423,20 +418,18 @@ export default function Atendimentos() {
             <>
               {/* Header do Chat */}
               <div className="bg-white p-4 border-b border-gray-200 flex items-center justify-between">
-                <div>
-                  <h2 className="font-semibold text-lg">{selectedLead.name || selectedLead.phone}</h2>
-                  <p className="text-sm text-gray-600">{selectedLead.phone}</p>
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center text-lg font-semibold text-gray-600">{selectedLead.name ? selectedLead.name.charAt(0).toUpperCase() : selectedLead.phone.slice(-2)}</div>
+                  <div>
+                    <h2 className="font-semibold text-lg">{selectedLead.name || selectedLead.phone}</h2>
+                    <p className="text-sm text-gray-600">{selectedLead.phone}</p>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <span className={`px-3 py-1 rounded text-xs ${selectedLead.priority === 'high' ? 'bg-red-100 text-red-700' :
-                    selectedLead.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                      'bg-gray-100 text-gray-700'
-                    }`}>
-                    {selectedLead.priority}
-                  </span>
-                  <span className="px-3 py-1 rounded text-xs bg-blue-100 text-blue-700">
-                    {selectedLead.stage}
-                  </span>
+                <div className="flex gap-2 items-center">
+                  <div className="text-right">
+                    <div className={`px-3 py-1 rounded text-xs ${selectedLead.priority === 'high' ? 'bg-red-100 text-red-700' : selectedLead.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-700'}`}>{selectedLead.priority}</div>
+                    <div className="mt-1 px-3 py-1 rounded text-xs bg-blue-100 text-blue-700">{selectedLead.stage}</div>
+                  </div>
                 </div>
               </div>
 
@@ -508,6 +501,20 @@ export default function Atendimentos() {
 
               {/* Input de Mensagem */}
               <form onSubmit={sendMessage} className="bg-white p-4 border-t border-gray-200">
+                <div className="mb-2 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm">{user.name ? user.name.charAt(0).toUpperCase() : 'A'}</div>
+                    <div>
+                      <div className="text-sm font-medium">{user.name || 'Atendente'}</div>
+                      <div className="text-xs text-gray-500">{user.role}</div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => { setNewMessage('Olá! Em que posso ajudar?') }} className="px-3 py-1 bg-gray-100 rounded text-sm">Boas vindas</button>
+                    <button type="button" onClick={() => { setNewMessage('Posso agendar uma visita para você. Qual data prefere?') }} className="px-3 py-1 bg-gray-100 rounded text-sm">Agendar</button>
+                  </div>
+                </div>
+
                 <div className="flex gap-2">
                   <input
                     type="text"
