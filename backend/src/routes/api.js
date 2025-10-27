@@ -388,14 +388,14 @@ router.post('/leads/:id/messages', async (req, res) => {
         lead.phone,
         text,
         io,
-        parseInt(req.params.id)
+        req.params.id
       )
     } else {
       result = await whatsappService.sendMessage(
         lead.phone,
         text,
         io,
-        parseInt(req.params.id)
+        req.params.id
       )
     }
   } catch (e) {
@@ -407,7 +407,7 @@ router.post('/leads/:id/messages', async (req, res) => {
     // Log de atividade
     await prisma.leadLog.create({
       data: {
-        leadId: parseInt(req.params.id),
+        leadId: req.params.id,
         userId: req.user.id,
         action: `Mensagem enviada via WhatsApp${result.simulated ? ' (simulada)' : ''}`
       }
@@ -416,8 +416,8 @@ router.post('/leads/:id/messages', async (req, res) => {
     try {
       const io = req.app.get('io')
       if (io) {
-        io.to(`lead_${parseInt(req.params.id)}`).emit('message:new', {
-          leadId: parseInt(req.params.id),
+        io.to(`lead_${req.params.id}`).emit('message:new', {
+          leadId: req.params.id,
           leadName: lead.name,
           message: result.message
         })

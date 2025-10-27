@@ -35,6 +35,14 @@ export default function Atendimentos() {
     fetchStats()
   }, [filter])
 
+  // Polling de segurança: atualiza lista de leads periodicamente
+  useEffect(() => {
+    const t = setInterval(() => {
+      fetchLeads()
+    }, 10000)
+    return () => clearInterval(t)
+  }, [filter, token])
+
   useEffect(() => {
     if (selectedLead) {
       fetchLeadDetails(selectedLead.id)
@@ -50,6 +58,15 @@ export default function Atendimentos() {
       }
     }
   }, [selectedLead, socket])
+
+  // Polling de segurança: atualiza mensagens do lead selecionado
+  useEffect(() => {
+    if (!selectedLead) return
+    const t = setInterval(() => {
+      fetchLeadDetails(selectedLead.id)
+    }, 5000)
+    return () => clearInterval(t)
+  }, [selectedLead?.id, token])
 
   useEffect(() => {
     scrollToBottom()
