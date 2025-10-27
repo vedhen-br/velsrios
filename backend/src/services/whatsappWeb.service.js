@@ -128,17 +128,10 @@ class WhatsAppWebService {
         try {
           const aiResponse = aiClassifier.generateResponse(text)
           if (aiResponse) {
-            // Persistir mensagem do bot
-            const botMsg = await prisma.message.create({
-              data: { leadId: lead.id, content: aiResponse, sender: 'bot', createdAt: new Date() }
-            })
-
-            // Emitir evento para o frontend (mostra a mensagem da IA)
-            if (this.io) this.io.emit('message:new', { leadId: lead.id, message: botMsg, lead })
-
-            // Enviar resposta ao usuário via WhatsApp (como agente)
-            // Nota: sendMessage persiste a mensagem também; passamos sender 'agent' para compatibilidade
-            await this.sendMessage(phone, aiResponse, this.io, lead.id, 'agent')
+            // Enviar resposta ao usuário via WhatsApp e persistir como 'bot' internamente
+            const sendRes = await this.sendMessage(phone, aiResponse, this.io, lead.id, 'bot')
+            // sendMessage already emits 'message:new' when leadId provided
+            if (!sendRes.success) console.warn('IA: envio via WhatsApp falhou', sendRes.error)
           }
         } catch (e) {
           console.error('Erro ao gerar/enviar resposta IA:', e)
