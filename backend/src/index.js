@@ -20,12 +20,15 @@ const prisma = new PrismaClient()
 // Behind a proxy/load balancer (Render, Vercel), trust proxy for correct IPs
 app.set('trust proxy', 1)
 
-// Configurar CORS para aceitar Codespaces e local
-// Inclui regex para permitir qualquer porta em localhost (facilita dev local)
+// Configurar CORS para aceitar Codespaces, local e domínios adicionais via env
+// EXTRA_ALLOWED_ORIGINS pode ser uma lista separada por ',' de domínios (ex: https://meusite.com,https://outro.com)
+// ALLOW_ALL_ORIGINS=true permite todas as origens (útil apenas para debug)
+const extra = (process.env.EXTRA_ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean)
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
   process.env.FRONTEND_URL,
+  ...extra,
   /^http:\/\/localhost:\d+$/,       // qualquer porta localhost (ex.: 5174)
   /^https:\/\/.*\.github\.dev$/,   // Codespaces
   /^https:\/\/.*\.app\.github\.dev$/  // Codespaces preview
@@ -35,6 +38,9 @@ const allowedOrigins = [
 const io = new Server(httpServer, {
   cors: {
     origin: (origin, callback) => {
+      // Allow all origins when explicitly requested (debug)
+      if (String(process.env.ALLOW_ALL_ORIGINS).toLowerCase() === 'true') return callback(null, true)
+
       // Permitir requests sem origin (mobile apps, Postman, etc)
       if (!origin) return callback(null, true)
 
