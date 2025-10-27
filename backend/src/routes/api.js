@@ -327,7 +327,6 @@ router.patch('/leads/:id', async (req, res) => {
   if (req.user.role !== 'admin' && lead.assignedTo !== req.user.id) {
     return res.status(403).json({ error: 'Acesso negado' })
   }
-  // Admin pode editar qualquer lead
   const updateData = { stage, status, notes, priority, interest }
   // Permite transferência de lead (admin)
   if (req.user.role === 'admin' && req.body.assignedTo) {
@@ -558,15 +557,20 @@ router.delete('/leads/:id', async (req, res) => {
   if (!lead) return res.status(404).json({ error: 'Lead não encontrado' })
   // Permissões
   if (req.user.role !== 'admin') {
-    // Apenas dono com permissão explícita pode excluir
-    const me = await prisma.user.findUnique({ where: { id: req.user.id } })
-    let canDelete = false
-    try {
-      const parsed = JSON.parse(me?.data || '{}')
-      canDelete = !!parsed?.permissions?.canDeleteConversation
-    } catch { }
-    if (!(lead.assignedTo === req.user.id && canDelete)) {
-      return res.status(403).json({ error: 'Acesso negado' })
+    // Regra 1: usuário pode excluir seus próprios atendimentos do WhatsApp (aba "Meus")
+    if (lead.origin === 'whatsapp' && lead.assignedTo === req.user.id) {
+      // permitido
+    } else {
+      // Regra 2 (fallback): precisa de permissão explícita
+      const me = await prisma.user.findUnique({ where: { id: req.user.id } })
+      let canDelete = false
+      try {
+        const parsed = JSON.parse(me?.data || '{}')
+        canDelete = !!parsed?.permissions?.canDeleteConversation
+      } catch { }
+      if (!canDelete) {
+        return res.status(403).json({ error: 'Acesso negado' })
+      }
     }
   }
 

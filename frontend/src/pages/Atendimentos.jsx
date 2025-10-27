@@ -24,13 +24,7 @@ export default function Atendimentos() {
   const [showTransfer, setShowTransfer] = useState(false)
   const [transferUserId, setTransferUserId] = useState('')
   // Removido: criação manual de lead neste fluxo (apenas leads do WhatsApp)
-  const [stats, setStats] = useState({
-    totalLeads: 0,
-    todayLeads: 0,
-    onlineAgents: 0,
-    inProgress: 0,
-    converted: 0
-  })
+  const [stats, setStats] = useState(null)
   const messagesEndRef = useRef(null)
   const messagesContainerRef = useRef(null)
   const atBottomRef = useRef(true)
@@ -40,7 +34,6 @@ export default function Atendimentos() {
   // Fetch inicial
   useEffect(() => {
     fetchLeads()
-    fetchStats()
   }, [filter])
 
   // Polling de segurança: atualiza lista de leads periodicamente
@@ -123,23 +116,7 @@ export default function Atendimentos() {
     }
   }
 
-  async function fetchStats() {
-    try {
-      const res = await axios.get(`${API}/leads/stats`, { headers: { Authorization: `Bearer ${token}` } })
-      setStats(res.data || stats)
-    } catch (e) {
-      console.error('Erro ao carregar estatísticas:', e)
-      // Fallback com estatísticas calculadas dos leads
-      const today = new Date().toDateString()
-      setStats({
-        totalLeads: leads.length || 247,
-        todayLeads: leads.filter(l => new Date(l.createdAt).toDateString() === today).length || 12,
-        onlineAgents: 4,
-        inProgress: leads.filter(l => ['contacted', 'qualified', 'proposal', 'negotiation'].includes(l.stage)).length || 89,
-        converted: leads.filter(l => l.stage === 'closed').length || 34
-      })
-    }
-  }
+  // stats removidas da UI para maximizar a área de atendimento
 
   // Carregar lista de usuários (para transferência) quando permitido
   useEffect(() => {
@@ -327,91 +304,14 @@ export default function Atendimentos() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-gray-50">
-      {/* Dashboard Header com Stats */}
-      <div className="bg-white border-b border-gray-200 p-4">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Atendimentos</h1>
-              <p className="text-gray-600">Conecte, converse e gerencie atendimentos via WhatsApp</p>
-            </div>
-            <div className="flex items-center gap-3">
-              {isConnected ? (
-                <div className="flex items-center gap-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  IA Ativa
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm">
-                  <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                  Funcionando
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Cards de Métricas */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-4 rounded-xl shadow-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-blue-100 text-sm">Total de Leads</p>
-                  <p className="text-3xl font-bold">{stats.totalLeads}</p>
-                </div>
-                <div className="text-blue-200">
-                  📊
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-4 rounded-xl shadow-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-green-100 text-sm">Leads Hoje</p>
-                  <p className="text-3xl font-bold">{stats.todayLeads}</p>
-                </div>
-                <div className="text-green-200">
-                  📈
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-4 rounded-xl shadow-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-purple-100 text-sm">Agentes Online</p>
-                  <p className="text-3xl font-bold">{stats.onlineAgents}/5</p>
-                </div>
-                <div className="text-purple-200">
-                  👥
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white p-4 rounded-xl shadow-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-yellow-100 text-sm">Em Atendimento</p>
-                  <p className="text-3xl font-bold">{stats.inProgress}</p>
-                </div>
-                <div className="text-yellow-200">
-                  💬
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white p-4 rounded-xl shadow-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-emerald-100 text-sm">Convertidos</p>
-                  <p className="text-3xl font-bold">{stats.converted}</p>
-                </div>
-                <div className="text-emerald-200">
-                  ✅
-                </div>
-              </div>
-            </div>
-          </div>
+      {/* Cabeçalho compacto apenas com título e status */}
+      <div className="bg-white border-b border-gray-200 px-4 py-2">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <h1 className="text-lg font-semibold text-gray-900">Atendimentos</h1>
+          <span className={`px-2 py-1 rounded-full text-xs ${waStatus === 'connected' ? 'bg-green-100 text-green-700' : waStatus === 'qr' || waStatus === 'connecting' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-700'}`}
+            title="Status do WhatsApp Web">
+            {waStatus === 'connected' ? 'WA Web online' : waStatus === 'qr' ? 'Aguardando QR' : waStatus === 'connecting' ? 'Conectando...' : 'WA Web offline'}
+          </span>
         </div>
       </div>
 
@@ -577,7 +477,7 @@ export default function Atendimentos() {
                         )}
                         <div className="h-px bg-gray-100 my-1" />
                         {/* Excluir conversa */}
-                        {(user?.role === 'admin' || user?.permissions?.canDeleteConversation) && (
+                        {(user?.role === 'admin' || user?.permissions?.canDeleteConversation || selectedLead?.assignedTo === user?.id) && (
                           <button onClick={async () => { if (confirm('Excluir esta conversa? Esta ação não pode ser desfeita.')) { await axios.delete(`${API}/leads/${selectedLead.id}`, { headers: { Authorization: `Bearer ${token}` } }); setSelectedLead(null); await fetchLeads(); } }} className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50">Excluir conversa</button>
                         )}
                         <div className="h-px bg-gray-100 my-1" />
