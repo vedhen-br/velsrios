@@ -792,7 +792,7 @@ router.patch('/users/:id', adminOnly, async (req, res) => {
   if (permissions) {
     const current = await prisma.user.findUnique({ where: { id: req.params.id }, select: { data: true } })
     let json = {}
-    try { json = JSON.parse(current?.data || '{}') } catch {}
+    try { json = JSON.parse(current?.data || '{}') } catch { }
     json.permissions = { ...(json.permissions || {}), ...permissions }
     dataUpdate = JSON.stringify(json)
   }

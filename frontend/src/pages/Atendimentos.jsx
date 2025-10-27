@@ -12,6 +12,7 @@ export default function Atendimentos() {
   const { notify } = useNotifications()
   const [leads, setLeads] = useState([])
   const [selectedLead, setSelectedLead] = useState(null)
+  const [selectedLeadId, setSelectedLeadId] = useState(null)
   const [messages, setMessages] = useState([])
   const [groupedMessages, setGroupedMessages] = useState([])
   const [newMessage, setNewMessage] = useState('')
@@ -32,6 +33,8 @@ export default function Atendimentos() {
   })
   const messagesEndRef = useRef(null)
   const messagesContainerRef = useRef(null)
+  const atBottomRef = useRef(true)
+  const prevSelectedIdRef = useRef(null)
   const typingTimeoutRef = useRef(null)
 
   // Fetch inicial
@@ -49,32 +52,33 @@ export default function Atendimentos() {
   }, [filter, token])
 
   useEffect(() => {
-    if (selectedLead) {
-      fetchLeadDetails(selectedLead.id)
-      // Entrar na sala do lead
-      if (socket) {
-        socket.emit('viewing:lead', selectedLead.id)
-      }
+    // Sair da sala anterior
+    const prev = prevSelectedIdRef.current
+    if (socket && prev && prev !== selectedLeadId) {
+      socket.emit('leave:lead', prev)
     }
 
-    return () => {
-      if (socket && selectedLead) {
-        socket.emit('leave:lead', selectedLead.id)
-      }
+    if (selectedLeadId) {
+      fetchLeadDetails(selectedLeadId)
+      if (socket) socket.emit('viewing:lead', selectedLeadId)
+      // ao selecionar uma nova conversa, rolar para o final uma vez
+      setTimeout(() => scrollToBottom(true), 0)
     }
-  }, [selectedLead, socket])
+
+    prevSelectedIdRef.current = selectedLeadId
+  }, [selectedLeadId, socket])
 
   // Polling de segurança: atualiza mensagens do lead selecionado
   useEffect(() => {
-    if (!selectedLead) return
+    if (!selectedLeadId) return
     const t = setInterval(() => {
-      fetchLeadDetails(selectedLead.id)
+      fetchLeadDetails(selectedLeadId)
     }, 5000)
     return () => clearInterval(t)
-  }, [selectedLead?.id, token])
+  }, [selectedLeadId, token])
 
   useEffect(() => {
-    scrollToBottom()
+    if (atBottomRef.current) scrollToBottom()
   }, [messages])
 
   // Agrupa mensagens por dia
@@ -90,13 +94,14 @@ export default function Atendimentos() {
     setGroupedMessages(sections)
   }, [messages])
 
-  const scrollToBottom = () => {
+  const scrollToBottom = (force = false) => {
     const el = messagesContainerRef.current
-    if (el) {
-      el.scrollTop = el.scrollHeight
-    } else {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'instant' })
+    if (!el) return
+    if (!force) {
+      const distance = el.scrollHeight - el.scrollTop - el.clientHeight
+      if (distance > 120) return
     }
+    el.scrollTop = el.scrollHeight
   }
 
   async function fetchLeads() {
@@ -163,7 +168,7 @@ export default function Atendimentos() {
     console.log('📩 Nova mensagem recebida:', data)
 
     // Atualizar mensagens se for do lead selecionado
-    if (data.leadId === selectedLead?.id) {
+    if (data.leadId === selectedLeadId) {
       setMessages(prev => [...prev, data.message])
     }
 
@@ -177,7 +182,7 @@ export default function Atendimentos() {
       message: `${data.leadName || 'Lead'}: ${preview}`,
       type: 'info'
     })
-  }, [selectedLead])
+  }, [selectedLeadId])
 
   // WebSocket: Novo lead
   const handleNewLead = useCallback((data) => {
@@ -204,11 +209,11 @@ export default function Atendimentos() {
 
   // WebSocket: Usuário digitando
   const handleUserTyping = useCallback((data) => {
-    if (data.leadId === selectedLead?.id && data.userId !== user.id) {
+    if (data.leadId === selectedLeadId && data.userId !== user.id) {
       setIsTyping(true)
       setTimeout(() => setIsTyping(false), 3000)
     }
-  }, [selectedLead, user])
+  }, [selectedLeadId, user])
 
   // Registrar event listeners
   useSocketEvent(socket, 'message:new', handleNewMessage)
@@ -216,10 +221,10 @@ export default function Atendimentos() {
   useSocketEvent(socket, 'message:status', handleMessageStatus)
   useSocketEvent(socket, 'user:typing', handleUserTyping)
   useSocketEvent(socket, 'message:deleted', useCallback((data) => {
-    if (data?.leadId === selectedLead?.id) {
+    if (data?.leadId === selectedLeadId) {
       setMessages(prev => prev.filter(m => m.id !== data.messageId))
     }
-  }, [selectedLead?.id]))
+  }, [selectedLeadId]))
 
   // WhatsApp Web status via socket (se disponível)
   useSocketEvent(socket, 'whatsapp:web:status', useCallback((data) => {
@@ -467,8 +472,8 @@ export default function Atendimentos() {
             {leads.map(lead => (
               <div
                 key={lead.id}
-                onClick={() => setSelectedLead(lead)}
-                className={`p-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition ${selectedLead?.id === lead.id ? 'bg-blue-50' : ''}`}
+                onClick={() => { if (selectedLeadId !== lead.id) { setSelectedLeadId(lead.id) } }}
+                className={`p-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition ${selectedLeadId === lead.id ? 'bg-blue-50' : ''}`}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -600,7 +605,15 @@ export default function Atendimentos() {
               </div>
 
               {/* Área de Mensagens */}
-              <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-6 overscroll-contain">
+              <div
+                ref={messagesContainerRef}
+                className="flex-1 overflow-y-auto p-4 space-y-6 overscroll-contain"
+                onScroll={(e) => {
+                  const el = e.currentTarget
+                  const distance = el.scrollHeight - el.scrollTop - el.clientHeight
+                  atBottomRef.current = distance < 120
+                }}
+              >
                 {groupedMessages.map((section, sidx) => (
                   <div key={sidx}>
                     <div className="text-center my-2">
@@ -628,9 +641,9 @@ export default function Atendimentos() {
                                 )}
 
                                 {/* Mídia */}
-                                {msg.mediaUrl && (
+                                {msg.mediaUrl && (/^(https?:\/\/|data:)/i.test(msg.mediaUrl)) && (
                                   <div className="mb-2">
-                                    {msg.mediaUrl.includes('image') || msg.text.includes('[IMAGEM]') ? (
+                                    {msg.mediaUrl.startsWith('data:') || /\.(png|jpg|jpeg|gif|webp)$/i.test(msg.mediaUrl) ? (
                                       <img src={msg.mediaUrl} alt="Mídia" className="rounded max-w-full" />
                                     ) : (
                                       <a href={msg.mediaUrl} target="_blank" rel="noopener noreferrer" className="text-sm underline">
