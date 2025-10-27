@@ -67,6 +67,10 @@ app.set('io', io)
 
 app.use(cors({
   origin: (origin, callback) => {
+    // Allow all origins explicitly when env says so (debug/unblock)
+    if (String(process.env.ALLOW_ALL_ORIGINS).toLowerCase() === 'true') return callback(null, true)
+
+    // Permit requests without Origin (mobile apps, curl, Postman)
     if (!origin) return callback(null, true)
 
     const isAllowed = allowedOrigins.some(allowed => {
@@ -75,9 +79,14 @@ app.use(cors({
       return false
     })
 
+    if (!isAllowed) console.warn(`CORS/api: origin rejected -> ${origin}`)
+    else console.log(`CORS/api: origin allowed -> ${origin}`)
+
     callback(null, isAllowed)
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Authorization', 'Content-Type', 'Accept']
 }))
 // Security headers
 app.use(helmet({
