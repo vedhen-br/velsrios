@@ -385,10 +385,14 @@ router.post('/leads/:id/messages', async (req, res) => {
   try {
     if (whatsappWebService.isConnected && whatsappWebService.isConnected()) {
       // Tenta enviar via sessão QR (Baileys)
-      result = await whatsappWebService.sendMessage(lead.phone, text, io, req.params.id)
+      try {
+        result = await whatsappWebService.sendMessage(lead.phone, text, io, req.params.id)
+      } catch (err) {
+        console.warn('Baileys lançou erro, ativando fallback Cloud API:', err?.message || err)
+        result = { success: false, error: err?.message || 'baileys-error' }
+      }
       // Fallback: se falhar por qualquer motivo, tenta Cloud API (ou simulação)
       if (!result?.success) {
-        console.warn('Baileys falhou, usando fallback Cloud API:', result?.error)
         result = await whatsappService.sendMessage(lead.phone, text, io, req.params.id)
       }
     } else {
