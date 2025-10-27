@@ -10,6 +10,7 @@
     "db:deploy": "npx prisma migrate deploy",
     "db:studio": "npx prisma studio",
     "db:generate": "npx prisma generate",
+    "postinstall": "npx prisma generate",
     "check:db": "node scripts/checkDb.js",
     "check:api": "node scripts/checkApi.js",
     "prisma": "prisma"

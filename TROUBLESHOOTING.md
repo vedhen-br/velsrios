@@ -489,3 +489,52 @@ Quando encontrar um erro novo, use este template:
 *Mantenha este documento sempre atualizado! Cada erro resolvido é conhecimento compartilhado.*
 
 *Última atualização: 24/10/2024*
+
+---
+
+## 💬 WhatsApp via QR (Baileys) — Problemas Comuns
+
+### QR não aparece na modal
+**Causas possíveis**:
+- Socket.io não conectou (VITE_WS_URL incorreta ou CORS).
+- Sessão ainda inicializando no backend.
+
+**Soluções**:
+1. Verifique a DebugBar no frontend (`?debug=1`) para confirmar os URLs.
+2. Reabra a modal “Conectar via QR”.
+3. Confira logs do backend no Render procurando por `whatsapp:web:qr`.
+
+### Conexão cai ao reiniciar backend
+**Causa**: Sessão não persistida.
+
+**Situação atual**: A sessão agora é persistida no Postgres (tabela `whatsapp_store`).
+
+**Checklist**:
+- As migrações foram aplicadas? `cd backend; npm run db:deploy`
+- O banco (Neon) está acessível a partir do Render?
+
+### Mensagens não entram no Atendimentos
+**Causas**:
+- Sessão não está com status “Conectado”.
+- Usuário não autenticado no app durante o teste.
+
+**Soluções**:
+1. Em Configurações → WhatsApp, confirme o status “Conectado”.
+2. Envie uma mensagem do seu número para o WhatsApp conectado.
+3. Veja logs `messages.upsert` no backend e eventos `message:new` no socket.
+
+### Envio falha via QR, mas Cloud API funciona
+**Causa**: Sessão QR não conectada naquele momento.
+
+**Solução**: O sistema já faz fallback automático para Cloud API/simulação. Reconecte via QR para priorizar o envio por sessão.
+
+### Quero trocar/persistir sessão em outro storage
+**Opção**: A implementação usa Prisma com tabela `whatsapp_store`. Podemos trocar para S3/Redis/Planetscale conforme necessidade.
+
+### Erro ao iniciar sessão QR (500 ao chamar /whatsapp/web/start)
+**Causa comum**: Prisma Client não gerado para o novo modelo `WhatsAppStore` no ambiente de deploy.
+
+**Solução**:
+1. Garantir migration aplicada: `cd backend; npm run db:deploy`
+2. Gerar Prisma Client no build: adicionar script `postinstall: npx prisma generate` (já adicionado neste repo)
+3. Fazer novo deploy do backend.

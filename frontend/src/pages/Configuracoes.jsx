@@ -161,7 +161,8 @@ export default function Configuracoes() {
       }
     } catch (error) {
       console.error('Erro ao iniciar WhatsApp Web:', error)
-      alert('Não foi possível iniciar a sessão WhatsApp Web (simulada)')
+      const msg = error?.response?.data?.error || 'Não foi possível iniciar a sessão WhatsApp Web'
+      alert(msg)
       setQrModalOpen(false)
     }
   }
@@ -255,8 +256,8 @@ export default function Configuracoes() {
             <button
               onClick={() => setActiveTab('users')}
               className={`px-6 py-3 font-medium ${activeTab === 'users'
-                  ? 'border-b-2 border-blue-600 text-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
+                ? 'border-b-2 border-blue-600 text-blue-600'
+                : 'text-gray-600 hover:text-gray-900'
                 }`}
             >
               👥 Usuários
@@ -264,8 +265,8 @@ export default function Configuracoes() {
             <button
               onClick={() => setActiveTab('tags')}
               className={`px-6 py-3 font-medium ${activeTab === 'tags'
-                  ? 'border-b-2 border-blue-600 text-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
+                ? 'border-b-2 border-blue-600 text-blue-600'
+                : 'text-gray-600 hover:text-gray-900'
                 }`}
             >
               🏷️ Tags
@@ -273,8 +274,8 @@ export default function Configuracoes() {
             <button
               onClick={() => setActiveTab('whatsapp')}
               className={`px-6 py-3 font-medium ${activeTab === 'whatsapp'
-                  ? 'border-b-2 border-blue-600 text-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
+                ? 'border-b-2 border-blue-600 text-blue-600'
+                : 'text-gray-600 hover:text-gray-900'
                 }`}
             >
               💬 WhatsApp
@@ -282,8 +283,8 @@ export default function Configuracoes() {
             <button
               onClick={() => setActiveTab('templates')}
               className={`px-6 py-3 font-medium ${activeTab === 'templates'
-                  ? 'border-b-2 border-blue-600 text-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
+                ? 'border-b-2 border-blue-600 text-blue-600'
+                : 'text-gray-600 hover:text-gray-900'
                 }`}
             >
               📝 Templates
@@ -311,14 +312,14 @@ export default function Configuracoes() {
                             <div className="flex items-center gap-3">
                               <h3 className="font-semibold text-gray-900">{u.name}</h3>
                               <span className={`px-2 py-1 text-xs rounded-full ${u.role === 'admin'
-                                  ? 'bg-purple-100 text-purple-800'
-                                  : 'bg-blue-100 text-blue-800'
+                                ? 'bg-purple-100 text-purple-800'
+                                : 'bg-blue-100 text-blue-800'
                                 }`}>
                                 {u.role === 'admin' ? '👑 Admin' : '👤 User'}
                               </span>
                               <span className={`px-2 py-1 text-xs rounded-full ${u.available
-                                  ? 'bg-green-100 text-green-800'
-                                  : 'bg-gray-100 text-gray-800'
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-gray-100 text-gray-800'
                                 }`}>
                                 {u.available ? '✅ Disponível' : '⏸️ Indisponível'}
                               </span>
@@ -333,8 +334,8 @@ export default function Configuracoes() {
                             <button
                               onClick={() => toggleUserAvailability(u.id, u.available)}
                               className={`px-3 py-1 rounded text-sm ${u.available
-                                  ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                  : 'bg-green-600 text-white hover:bg-green-700'
+                                ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                : 'bg-green-600 text-white hover:bg-green-700'
                                 }`}
                             >
                               {u.available ? 'Desativar' : 'Ativar'}
@@ -445,8 +446,8 @@ export default function Configuracoes() {
 
                 {/* Status da Configuração */}
                 <div className={`mb-6 p-4 rounded-lg border-2 ${whatsappConfig.isConfigured
-                    ? 'bg-green-50 border-green-200'
-                    : 'bg-yellow-50 border-yellow-200'
+                  ? 'bg-green-50 border-green-200'
+                  : 'bg-yellow-50 border-yellow-200'
                   }`}>
                   <div className="flex items-center gap-3">
                     {whatsappConfig.isConfigured ? (
@@ -480,8 +481,8 @@ export default function Configuracoes() {
                       <div className="flex items-center justify-between">
                         <h3 className="font-semibold text-gray-900">📱 Conectar via QR (WhatsApp Web)</h3>
                         <span className={`text-xs px-2 py-1 rounded-full ${webStatus === 'connected' ? 'bg-green-100 text-green-700' :
-                            webStatus === 'qr' || webStatus === 'connecting' ? 'bg-yellow-100 text-yellow-700' :
-                              'bg-gray-100 text-gray-700'
+                          webStatus === 'qr' || webStatus === 'connecting' ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-gray-100 text-gray-700'
                           }`}>
                           {webStatus === 'connected' ? 'Conectado' : webStatus === 'qr' ? 'Aguardando leitura' : webStatus === 'connecting' ? 'Conectando...' : 'Desconectado'}
                         </span>
