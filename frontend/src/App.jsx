@@ -16,6 +16,8 @@ import DebugBar from './components/DebugBar'
 function AppContent() {
   const { user, loading } = useAuth()
   const [currentPage, setCurrentPage] = useState('atendimentos')
+  const [updateAvailable, setUpdateAvailable] = useState(false)
+  const [latestInfo, setLatestInfo] = useState(null)
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -27,6 +29,31 @@ function AppContent() {
     handleHashChange()
 
     return () => window.removeEventListener('hashchange', handleHashChange)
+  }, [])
+
+  // Verifica periodicamente se há nova versão no ar
+  useEffect(() => {
+    let timer
+    const currentCommit = typeof __APP_BUILD_INFO__ !== 'undefined' ? (__APP_BUILD_INFO__.commit || '') : ''
+
+    const checkVersion = async () => {
+      try {
+        const res = await fetch(`/version.json?ts=${Date.now()}`, { cache: 'no-store' })
+        if (!res.ok) return
+        const info = await res.json()
+        setLatestInfo(info)
+        if (info?.commit && currentCommit && info.commit !== currentCommit) {
+          setUpdateAvailable(true)
+        }
+      } catch (e) {
+        // silencioso
+      }
+    }
+
+    // checa ao montar e depois a cada 60s
+    checkVersion()
+    timer = setInterval(checkVersion, 60000)
+    return () => timer && clearInterval(timer)
   }, [])
 
   if (loading) {
@@ -70,6 +97,22 @@ function AppContent() {
       <Layout currentPage={currentPage}>
         {renderPage()}
       </Layout>
+      {updateAvailable && (
+        <div style={{
+          position: 'fixed', bottom: 16, left: '50%', transform: 'translateX(-50%)',
+          background: '#111827', color: '#fff', padding: '10px 14px', borderRadius: 8,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.2)', display: 'flex', gap: 12, alignItems: 'center', zIndex: 9999
+        }}>
+          <span>Nova versão disponível</span>
+          {latestInfo?.commit && (
+            <span style={{ opacity: 0.8 }}>({latestInfo.commit.slice(0,7)})</span>
+          )}
+          <button
+            onClick={() => window.location.reload()}
+            style={{ background: '#2563eb', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: 6, cursor: 'pointer' }}
+          >Atualizar</button>
+        </div>
+      )}
       <DebugBar />
     </ErrorBoundary>
   )
