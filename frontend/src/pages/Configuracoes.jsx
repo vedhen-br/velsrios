@@ -34,11 +34,11 @@ export default function Configuracoes() {
   const [webStatus, setWebStatus] = useState('disconnected') // 'disconnected' | 'qr' | 'connecting' | 'connected'
 
   const API_URL = getApiUrl()
-  const { socket } = useSocket(user?.id)
+  const { socket, isConnected } = useSocket(user?.id)
 
   // Attach socket listeners for WhatsApp Web
   useEffect(() => {
-    if (!socket) return
+    if (!socket || !isConnected) return
     const onQr = (payload) => {
       if (payload?.qrDataUrl) {
         setQrImage(payload.qrDataUrl)
@@ -61,12 +61,32 @@ export default function Configuracoes() {
       socket.off('whatsapp:web:qr', onQr)
       socket.off('whatsapp:web:status', onStatus)
     }
-  }, [socket])
+  }, [socket, isConnected])
 
   useEffect(() => {
     if (activeTab === 'users') fetchUsers()
     if (activeTab === 'tags') fetchTags()
     if (activeTab === 'whatsapp') fetchWhatsAppConfig()
+  }, [activeTab])
+
+  // Ao abrir a aba WhatsApp, buscar status atual (pode já existir um QR ativo)
+  useEffect(() => {
+    const loadStatus = async () => {
+      if (activeTab !== 'whatsapp') return
+      try {
+        const res = await axios.get(`${API_URL}/whatsapp/web/status`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        if (res.data?.status) setWebStatus(res.data.status)
+        if (res.data?.qrDataUrl) {
+          setQrImage(res.data.qrDataUrl)
+          setQrModalOpen(true)
+        }
+      } catch (e) {
+        // silencioso
+      }
+    }
+    loadStatus()
   }, [activeTab])
 
   const fetchUsers = async () => {
@@ -668,32 +688,7 @@ export default function Configuracoes() {
             {activeTab === 'templates' && (
               <div>
 
-                {/* Modal QR WhatsApp Web */}
-                {qrModalOpen && (
-                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg p-6 w-full max-w-md">
-                      <div className="flex items-center justify-between mb-2">
-                        <h2 className="text-xl font-bold">Conectar WhatsApp Web</h2>
-                        <button onClick={() => setQrModalOpen(false)} className="text-gray-500 hover:text-gray-700">✖</button>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-4">Abra o WhatsApp no seu celular → Dispositivos conectados → Conectar aparelho e escaneie o QR abaixo.</p>
-                      <div className="flex items-center justify-center border rounded-lg p-4 bg-gray-50">
-                        {qrImage ? (
-                          <img src={qrImage} alt="QR Code" className="w-64 h-64 object-contain" />
-                        ) : (
-                          <div className="text-center">
-                            <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-2"></div>
-                            <p className="text-sm text-gray-600">Gerando QR...</p>
-                          </div>
-                        )}
-                      </div>
-                      <div className="mt-4 flex justify-between items-center">
-                        <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700">{webStatus}</span>
-                        <button onClick={startWhatsAppWeb} className="text-blue-600 hover:text-blue-800 text-sm">🔄 Gerar novo QR</button>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                {/* Modal QR was moved below so it renders regardless of activeTab */}
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6 mb-6">
                   <h2 className="text-lg font-semibold text-gray-900 mb-4">🎯 Configurações Globais do Sistema</h2>
 
@@ -1142,6 +1137,33 @@ export default function Configuracoes() {
               >
                 Salvar
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal QR WhatsApp Web */}
+      {qrModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-xl font-bold">Conectar WhatsApp Web</h2>
+              <button onClick={() => setQrModalOpen(false)} className="text-gray-500 hover:text-gray-700">✖</button>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">Abra o WhatsApp no seu celular → Dispositivos conectados → Conectar aparelho e escaneie o QR abaixo.</p>
+            <div className="flex items-center justify-center border rounded-lg p-4 bg-gray-50">
+              {qrImage ? (
+                <img src={qrImage} alt="QR Code" className="w-64 h-64 object-contain" />
+              ) : (
+                <div className="text-center">
+                  <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-2"></div>
+                  <p className="text-sm text-gray-600">Gerando QR...</p>
+                </div>
+              )}
+            </div>
+            <div className="mt-4 flex justify-between items-center">
+              <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700">{webStatus}</span>
+              <button onClick={startWhatsAppWeb} className="text-blue-600 hover:text-blue-800 text-sm">🔄 Gerar novo QR</button>
             </div>
           </div>
         </div>
