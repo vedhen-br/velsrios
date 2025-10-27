@@ -194,6 +194,11 @@ export default function Atendimentos() {
   useSocketEvent(socket, 'lead:new', handleNewLead)
   useSocketEvent(socket, 'message:status', handleMessageStatus)
   useSocketEvent(socket, 'user:typing', handleUserTyping)
+  useSocketEvent(socket, 'message:deleted', useCallback((data) => {
+    if (data?.leadId === selectedLead?.id) {
+      setMessages(prev => prev.filter(m => m.id !== data.messageId))
+    }
+  }, [selectedLead?.id]))
 
   // WhatsApp Web status via socket (se disponível)
   useSocketEvent(socket, 'whatsapp:web:status', useCallback((data) => {
@@ -385,9 +390,9 @@ export default function Atendimentos() {
       </div>
 
       {/* Interface de Atendimento */}
-      <div className="flex flex-1 bg-gray-100">
+  <div className="flex flex-1 bg-gray-100 min-h-0">
         {/* Coluna 1: Lista de Conversas */}
-        <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
+  <div className="w-80 bg-white border-r border-gray-200 flex flex-col min-h-0">
           {/* Header */}
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between mb-3">
@@ -471,7 +476,7 @@ export default function Atendimentos() {
         </div>
 
         {/* Coluna 2: Chat */}
-        <div className="flex-1 flex flex-col bg-gray-50">
+  <div className="flex-1 flex flex-col bg-gray-50 min-h-0">
           {selectedLead ? (
             <>
               {/* Header do Chat */}
@@ -564,7 +569,7 @@ export default function Atendimentos() {
                         const isCustomer = msg.sender === 'customer'
 
                         return (
-                          <div key={msg.id || idx} className={`flex ${isOutgoing ? 'justify-end' : 'justify-start'}`}>
+                          <div key={msg.id || idx} className={`group relative flex ${isOutgoing ? 'justify-end' : 'justify-start'}`}>
                             <div className={`max-w-[70%] ${isOutgoing ? 'order-2' : 'order-1'}`}>
                               <div className={`rounded-2xl p-3 shadow ${isBot ? 'bg-emerald-50 text-emerald-900 border border-emerald-200' :
                                 isOutgoing ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-md' : 'bg-white border border-gray-200 shadow-sm'
@@ -603,6 +608,22 @@ export default function Atendimentos() {
                                 </div>
                               </div>
                             </div>
+                            {/* Apagar mensagem (admin ou dono do lead) */}
+                            {user?.role === 'admin' || selectedLead?.assignedTo === user?.id ? (
+                              <button
+                                onClick={async () => {
+                                  if (!msg.id) return
+                                  try {
+                                    await axios.delete(`${API}/leads/${selectedLead.id}/messages/${msg.id}`, { headers: { Authorization: `Bearer ${token}` } })
+                                    setMessages(prev => prev.filter(m => m.id !== msg.id))
+                                  } catch (e) {
+                                    alert('Não foi possível apagar a mensagem')
+                                  }
+                                }}
+                                className="absolute -top-2 ${isOutgoing ? 'right-0' : 'left-0'} hidden group-hover:block text-xs text-gray-400 hover:text-red-600"
+                                title="Apagar mensagem"
+                              >🗑️</button>
+                            ) : null}
                           </div>
                         )
                       })}

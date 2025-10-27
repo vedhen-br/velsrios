@@ -86,7 +86,16 @@ class WhatsAppWebService {
 
         // Extrai texto básico
         const m = msg.message || {}
-        const text = m.conversation || m.extendedTextMessage?.text || m.imageMessage?.caption || m.videoMessage?.caption || '[Mensagem]'
+        const text =
+          m.conversation ||
+          m.extendedTextMessage?.text ||
+          m.imageMessage?.caption ||
+          m.videoMessage?.caption ||
+          m.buttonsResponseMessage?.selectedDisplayText ||
+          m.listResponseMessage?.title ||
+          m.templateButtonReplyMessage?.selectedDisplayText ||
+          m.interactiveResponseMessage?.body?.text ||
+          '[mensagem não suportada]'
 
         const timestamp = new Date()
         // Busca ou cria lead

@@ -455,6 +455,32 @@ router.post('/leads/:id/messages', async (req, res) => {
   res.status(500).json({ error: result?.error || 'Erro ao enviar mensagem' })
 })
 
+// Delete a message (admin or owner of lead)
+router.delete('/leads/:leadId/messages/:messageId', async (req, res) => {
+  try {
+    const { leadId, messageId } = req.params
+    const lead = await prisma.lead.findUnique({ where: { id: leadId } })
+    if (!lead) return res.status(404).json({ error: 'Lead não encontrado' })
+    if (req.user.role !== 'admin' && lead.assignedTo !== req.user.id) {
+      return res.status(403).json({ error: 'Acesso negado' })
+    }
+
+    const msg = await prisma.message.findUnique({ where: { id: messageId } })
+    if (!msg || msg.leadId !== leadId) return res.status(404).json({ error: 'Mensagem não encontrada' })
+
+    await prisma.message.delete({ where: { id: messageId } })
+
+    try {
+      const io = req.app.get('io')
+      if (io) io.to(`lead_${leadId}`).emit('message:deleted', { leadId, messageId })
+    } catch { }
+
+    res.json({ success: true })
+  } catch (e) {
+    res.status(500).json({ error: 'Erro ao excluir mensagem' })
+  }
+})
+
 // Create task
 router.post('/tasks', async (req, res) => {
   const { title, description, dueDate, leadId } = req.body
