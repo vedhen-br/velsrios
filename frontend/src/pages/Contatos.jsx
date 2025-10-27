@@ -1,3 +1,17 @@
+import { useState, useEffect } from 'react'
+import axios from 'axios'
+import { useAuth } from '../contexts/AuthContext'
+import { getApiUrl } from '../utils/env'
+
+export default function Contatos() {
+  const { user, token } = useAuth()
+  const [leads, setLeads] = useState([])
+  const [users, setUsers] = useState([])
+  const [tags, setTags] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [selectedLeads, setSelectedLeads] = useState([])
+  const API_URL = getApiUrl()
+
   // Modal de transferência
   const [showTransferModal, setShowTransferModal] = useState(false)
   const [transferLead, setTransferLead] = useState(null)
@@ -31,29 +45,18 @@
     }
     setTransferLoading(false)
   }
-import { useState, useEffect } from 'react'
-import axios from 'axios'
-import { useAuth } from '../contexts/AuthContext'
 
-export default function Contatos() {
-  const { user, token } = useAuth()
-  const [leads, setLeads] = useState([])
-  const [users, setUsers] = useState([])
-  const [tags, setTags] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [selectedLeads, setSelectedLeads] = useState([])
-  
   // Filtros
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStage, setFilterStage] = useState('')
   const [filterPriority, setFilterPriority] = useState('')
   const [filterAssignedTo, setFilterAssignedTo] = useState('')
-  
+
   // Modal
   const [showModal, setShowModal] = useState(false)
   const [modalMode, setModalMode] = useState('create') // create | edit | bulk
   const [selectedLead, setSelectedLead] = useState(null)
-  
+
   // Novo Lead
   const [newLead, setNewLead] = useState({
     name: '',
@@ -62,9 +65,6 @@ export default function Contatos() {
     interest: '',
     origin: 'manual'
   })
-
-  const API_URL = 'http://localhost:4000/api'
-
   useEffect(() => {
     fetchLeads()
     fetchUsers()
@@ -405,7 +405,7 @@ export default function Contatos() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h2 className="text-xl font-bold mb-4">➕ Novo Lead</h2>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
@@ -416,7 +416,7 @@ export default function Contatos() {
                   className="w-full px-3 py-2 border rounded-lg"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Telefone *</label>
                 <input
@@ -427,7 +427,7 @@ export default function Contatos() {
                   placeholder="5511999999999"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                 <input
@@ -437,7 +437,7 @@ export default function Contatos() {
                   className="w-full px-3 py-2 border rounded-lg"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Interesse</label>
                 <input
@@ -449,7 +449,7 @@ export default function Contatos() {
                 />
               </div>
             </div>
-            
+
             <div className="flex gap-2 mt-6">
               <button
                 onClick={() => setShowModal(false)}
