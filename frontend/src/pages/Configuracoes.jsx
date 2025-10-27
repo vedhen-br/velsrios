@@ -187,6 +187,26 @@ export default function Configuracoes() {
     }
   }
 
+  const resetWhatsAppWeb = async () => {
+    try {
+      setQrModalOpen(true)
+      setWebStatus('connecting')
+      setQrImage('')
+      const res = await axios.post(`${API_URL}/whatsapp/web/reset`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (res.data?.qrDataUrl) {
+        setQrImage(res.data.qrDataUrl)
+        setWebStatus('qr')
+      }
+    } catch (error) {
+      console.error('Erro ao resetar WhatsApp Web:', error)
+      const msg = error?.response?.data?.error || 'Não foi possível resetar a sessão WhatsApp Web'
+      alert(msg)
+      setQrModalOpen(false)
+    }
+  }
+
   const disconnectWhatsAppWeb = async () => {
     try {
       await axios.post(`${API_URL}/whatsapp/web/disconnect`, {}, {
@@ -199,6 +219,31 @@ export default function Configuracoes() {
       alert('Não foi possível desconectar a sessão WhatsApp Web')
     }
   }
+
+  // Polling de status enquanto o modal estiver aberto (fallback caso eventos WS não cheguem)
+  useEffect(() => {
+    if (!qrModalOpen) return
+    let timer
+    const poll = async () => {
+      try {
+        const res = await axios.get(`${API_URL}/whatsapp/web/status`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        if (res.data?.status) setWebStatus(res.data.status)
+        if (res.data?.qrDataUrl) setQrImage(res.data.qrDataUrl)
+        if (res.data?.status === 'connected' || res.data?.status === 'disconnected') {
+          clearInterval(timer)
+          if (res.data?.status === 'connected') setQrModalOpen(false)
+        }
+      } catch (e) {
+        // ignore transient errors
+      }
+    }
+    // start immediately then poll
+    poll()
+    timer = setInterval(poll, 2500)
+    return () => clearInterval(timer)
+  }, [qrModalOpen])
 
   const updateUser = async (userId, data) => {
     try {
@@ -1163,7 +1208,7 @@ export default function Configuracoes() {
             </div>
             <div className="mt-4 flex justify-between items-center">
               <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700">{webStatus}</span>
-              <button onClick={startWhatsAppWeb} className="text-blue-600 hover:text-blue-800 text-sm">🔄 Gerar novo QR</button>
+              <button onClick={resetWhatsAppWeb} className="text-blue-600 hover:text-blue-800 text-sm">🔄 Gerar novo QR</button>
             </div>
           </div>
         </div>

@@ -36,12 +36,12 @@ class WhatsAppService {
    */
   verifyWebhook(mode, token, challenge) {
     const verifyToken = this.config?.verifyToken || 'lead_campanha_webhook_token_2025';
-    
+
     if (mode === 'subscribe' && token === verifyToken) {
       console.log('✅ Webhook verificado com sucesso!');
       return challenge;
     }
-    
+
     return null;
   }
 
@@ -56,7 +56,7 @@ class WhatsAppService {
       }
 
       const url = `${this.baseURL}/${this.config.phoneNumberId}/messages`;
-      
+
       const response = await axios.post(
         url,
         {
@@ -75,7 +75,7 @@ class WhatsAppService {
       );
 
       const messageId = response.data.messages[0].id;
-      
+
       // Salva mensagem no banco
       const savedMessage = await prisma.message.create({
         data: {
@@ -101,7 +101,7 @@ class WhatsAppService {
 
     } catch (error) {
       console.error('❌ Erro ao enviar mensagem WhatsApp:', error.response?.data || error.message);
-      
+
       // Em caso de erro, simula envio
       return this.simulateSend(to, message, io, leadId);
     }
@@ -118,7 +118,7 @@ class WhatsAppService {
       }
 
       const url = `${this.baseURL}/${this.config.phoneNumberId}/messages`;
-      
+
       const payload = {
         messaging_product: 'whatsapp',
         recipient_type: 'individual',
@@ -139,7 +139,7 @@ class WhatsAppService {
       });
 
       const messageId = response.data.messages[0].id;
-      
+
       const savedMessage = await prisma.message.create({
         data: {
           leadId,
@@ -249,9 +249,9 @@ class WhatsAppService {
       if (!lead) {
         // Cria novo lead e distribui
         const users = await prisma.user.findMany({
-          where: { 
+          where: {
             role: 'user',
-            available: true 
+            available: true
           },
           orderBy: { id: 'asc' }
         });
@@ -275,7 +275,7 @@ class WhatsAppService {
         // Lead distribuído
         if (users.length > 0) {
           const assignedUser = users[0]; // Round-robin simples
-          
+
           lead = await prisma.lead.create({
             data: {
               name: contactName,

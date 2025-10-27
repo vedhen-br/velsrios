@@ -58,6 +58,8 @@ async function autoSeedIfEmpty(prisma) {
 
 async function seedUiDemoIfEnabled(prisma) {
   const enabled = String(process.env.AUTO_SEED_UI || '').toLowerCase() === 'true'
+  // Nunca roda em produção para não criar conversas artificiais
+  if (String(process.env.NODE_ENV).toLowerCase() === 'production') return
   if (!enabled) return
 
   const phone = '559999000111'

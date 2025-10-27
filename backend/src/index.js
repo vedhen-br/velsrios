@@ -29,6 +29,7 @@ const allowedOrigins = [
   'http://localhost:3000',
   process.env.FRONTEND_URL,
   ...extra,
+  /^https:\/\/.*\.vercel\.app$/, // Vercel previews & prod
   /^http:\/\/localhost:\d+$/,       // qualquer porta localhost (ex.: 5174)
   /^https:\/\/.*\.github\.dev$/,   // Codespaces
   /^https:\/\/.*\.app\.github\.dev$/  // Codespaces preview

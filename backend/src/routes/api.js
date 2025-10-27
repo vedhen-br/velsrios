@@ -200,7 +200,8 @@ router.get('/leads/atendimento', async (req, res) => {
     // Filtros opcionais
     if (stage) where.stage = stage
     if (assignedTo && req.user.role === 'admin') where.assignedTo = assignedTo
-    if (origin) where.origin = origin
+    // Atendimento deve listar por padrão somente conversas do WhatsApp
+    where.origin = origin || 'whatsapp'
 
     const leads = await prisma.lead.findMany({
       where,
@@ -861,6 +862,18 @@ router.post('/whatsapp/web/disconnect', adminOnly, async (req, res) => {
     res.json({ success: true })
   } catch (error) {
     res.status(500).json({ error: 'Erro ao desconectar WhatsApp Web' })
+  }
+})
+
+// Reset WhatsApp Web session (clear creds and force new QR) — admin only
+router.post('/whatsapp/web/reset', adminOnly, async (req, res) => {
+  try {
+    const io = req.app.get('io')
+    const result = await whatsappWebService.resetSession(io)
+    res.json(result)
+  } catch (error) {
+    console.error('Erro ao resetar sessão WhatsApp Web:', error?.stack || error?.message || error)
+    res.status(500).json({ error: error?.message || 'Erro ao resetar sessão WhatsApp Web' })
   }
 })
 

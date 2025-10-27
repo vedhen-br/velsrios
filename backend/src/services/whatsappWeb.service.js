@@ -234,6 +234,26 @@ class WhatsAppWebService {
       this.sock = null
     }
   }
+
+  /**
+   * Reseta a sessão: apaga credenciais/keys persistidas, desconecta e inicia novamente
+   * Útil quando o QR fica em loop de carregamento ou as credenciais corrompem
+   */
+  async resetSession(io = null) {
+    // Desconecta sessão atual (se houver)
+    await this.disconnect()
+
+    // Limpa storage no Postgres
+    try {
+      await prisma.whatsAppStore.deleteMany({})
+      console.log('🧹 whatsapp_store limpo — novo QR será gerado')
+    } catch (e) {
+      console.warn('Não foi possível limpar whatsapp_store:', e?.message || e)
+    }
+
+    // Reinicia sessão para forçar novo QR
+    return this.startSession(io || this.io)
+  }
 }
 
 module.exports = new WhatsAppWebService()
