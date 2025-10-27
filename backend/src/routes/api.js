@@ -185,9 +185,55 @@ router.get('/leads', async (req, res) => {
   res.json(leads)
 })
 
+// List leads for atendimento (chat interface) — definido ANTES de /leads/:id para evitar conflito
+router.get('/leads/atendimento', async (req, res) => {
+  try {
+    const { stage, assignedTo, origin } = req.query
+
+    let where = {}
+
+    // Se não é admin, vê apenas os próprios leads
+    if (req.user.role !== 'admin') {
+      where.assignedTo = req.user.id
+    }
+
+    // Filtros opcionais
+    if (stage) where.stage = stage
+    if (assignedTo && req.user.role === 'admin') where.assignedTo = assignedTo
+    if (origin) where.origin = origin
+
+    const leads = await prisma.lead.findMany({
+      where,
+      include: {
+        assignedUser: { select: { id: true, name: true, email: true } },
+        messages: {
+          orderBy: { createdAt: 'desc' },
+          take: 1 // Apenas a última mensagem para a lista
+        },
+        tasks: { where: { completed: false } },
+        _count: { select: { messages: true, tasks: true } }
+      },
+      orderBy: {
+        updatedAt: 'desc' // Mais recentemente atualizados primeiro
+      }
+    })
+
+    // Adicionar campo de última interação
+    const leadsWithLastInteraction = leads.map(lead => ({
+      ...lead,
+      lastInteraction: lead.messages[0]?.createdAt || lead.updatedAt
+    }))
+
+    res.json(leadsWithLastInteraction)
+  } catch (error) {
+    console.error('Erro ao buscar leads para atendimento:', error)
+    res.status(500).json({ error: 'Erro ao buscar leads' })
+  }
+})
+
 // Get single lead
 // Use numeric id to avoid conflicting with fixed subpaths like '/leads/atendimento'
-router.get('/leads/:id(\\d+)', async (req, res) => {
+router.get('/leads/:id', async (req, res) => {
   const lead = await prisma.lead.findUnique({
     where: { id: req.params.id },
     include: {
@@ -245,7 +291,7 @@ router.post('/leads', async (req, res) => {
 })
 
 // Update lead
-router.patch('/leads/:id(\\d+)', async (req, res) => {
+router.patch('/leads/:id', async (req, res) => {
   const { stage, status, notes, priority, interest } = req.body
   const lead = await prisma.lead.findUnique({ where: { id: req.params.id } })
   if (!lead) return res.status(404).json({ error: 'Lead não encontrado' })
@@ -270,7 +316,7 @@ router.patch('/leads/:id(\\d+)', async (req, res) => {
 })
 
 // Send message
-router.post('/leads/:id(\\d+)/messages', async (req, res) => {
+router.post('/leads/:id/messages', async (req, res) => {
   const { text } = req.body
   if (!text) return res.status(400).json({ error: 'text obrigatório' })
 
@@ -379,7 +425,7 @@ router.post('/distribute', adminOnly, async (req, res) => {
 
 // Delete lead (admin only)
 // Delete lead
-router.delete('/leads/:id(\\d+)', async (req, res) => {
+router.delete('/leads/:id', async (req, res) => {
   const lead = await prisma.lead.findUnique({ where: { id: req.params.id } })
   if (!lead) return res.status(404).json({ error: 'Lead não encontrado' })
   // Usuário comum só pode excluir leads criados manualmente por ele
@@ -393,51 +439,7 @@ router.delete('/leads/:id(\\d+)', async (req, res) => {
   await prisma.lead.delete({ where: { id: req.params.id } })
   res.json({ success: true })
 })
-// List leads for atendimento (chat interface)
-router.get('/leads/atendimento', async (req, res) => {
-  try {
-    const { stage, assignedTo, origin } = req.query
-
-    let where = {}
-
-    // Se não é admin, vê apenas os próprios leads
-    if (req.user.role !== 'admin') {
-      where.assignedTo = req.user.id
-    }
-
-    // Filtros opcionais
-  if (stage) where.stage = stage
-    if (assignedTo && req.user.role === 'admin') where.assignedTo = assignedTo
-  if (origin) where.origin = origin
-
-    const leads = await prisma.lead.findMany({
-      where,
-      include: {
-        assignedUser: { select: { id: true, name: true, email: true } },
-        messages: {
-          orderBy: { createdAt: 'desc' },
-          take: 1 // Apenas a última mensagem para a lista
-        },
-        tasks: { where: { completed: false } },
-        _count: { select: { messages: true, tasks: true } }
-      },
-      orderBy: {
-        updatedAt: 'desc' // Mais recentemente atualizados primeiro
-      }
-    })
-
-    // Adicionar campo de última interação
-    const leadsWithLastInteraction = leads.map(lead => ({
-      ...lead,
-      lastInteraction: lead.messages[0]?.createdAt || lead.updatedAt
-    }))
-
-    res.json(leadsWithLastInteraction)
-  } catch (error) {
-    console.error('Erro ao buscar leads para atendimento:', error)
-    res.status(500).json({ error: 'Erro ao buscar leads' })
-  }
-})
+// (movido acima de /leads/:id)
 
 // Bulk actions (admin only)
 router.post('/leads/bulk', adminOnly, async (req, res) => {

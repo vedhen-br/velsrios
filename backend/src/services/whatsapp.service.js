@@ -80,7 +80,8 @@ class WhatsAppService {
       const savedMessage = await prisma.message.create({
         data: {
           leadId,
-          content: message,
+          text: message,
+          direction: 'outgoing',
           sender: 'agent',
           whatsappId: messageId,
           status: 'sent'
@@ -142,7 +143,8 @@ class WhatsAppService {
       const savedMessage = await prisma.message.create({
         data: {
           leadId,
-          content: caption || `[${type.toUpperCase()}]`,
+          text: caption || `[${type.toUpperCase()}]`,
+          direction: 'outgoing',
           sender: 'agent',
           whatsappId: messageId,
           status: 'sent',
@@ -264,8 +266,8 @@ class WhatsAppService {
             name: contactName,
             phone: phoneNumber,
             origin: 'whatsapp',
-            status: 'novo',
-            userId: admin?.id,
+            status: 'open',
+            assignedTo: admin?.id,
             lastInteraction: timestamp
           }
         });
@@ -279,8 +281,8 @@ class WhatsAppService {
               name: contactName,
               phone: phoneNumber,
               origin: 'whatsapp',
-              status: 'novo',
-              userId: assignedUser.id,
+              status: 'open',
+              assignedTo: assignedUser.id,
               lastInteraction: timestamp
             }
           });
@@ -317,7 +319,8 @@ class WhatsAppService {
       const savedMessage = await prisma.message.create({
         data: {
           leadId: lead.id,
-          content,
+          text: content,
+          direction: 'incoming',
           sender: 'customer',
           whatsappId: messageId,
           mediaUrl,
@@ -417,7 +420,8 @@ class WhatsAppService {
     const savedMessage = await prisma.message.create({
       data: {
         leadId,
-        content: message,
+        text: message,
+        direction: 'outgoing',
         sender: 'agent',
         status: 'sent'
       }

@@ -102,8 +102,8 @@ class WhatsAppWebService {
               name: phone,
               phone,
               origin: 'whatsapp',
-              status: 'novo',
-              userId: assigned?.id || null,
+              status: 'open',
+              assignedTo: assigned?.id || null,
               lastInteraction: timestamp
             }
           })
@@ -117,7 +117,7 @@ class WhatsAppWebService {
         }
 
         const savedMessage = await prisma.message.create({
-          data: { leadId: lead.id, content: text, sender: 'customer', createdAt: timestamp }
+          data: { leadId: lead.id, text, direction: 'incoming', sender: 'customer', createdAt: timestamp }
         })
 
         if (this.io) {
@@ -210,7 +210,7 @@ class WhatsAppWebService {
 
       // Persistir mensagem como enviada pelo agente
       const savedMessage = await prisma.message.create({
-        data: { leadId, content: message, sender: sender || 'agent', status: 'sent' }
+        data: { leadId, text: message, direction: 'outgoing', sender: sender || 'agent', status: 'sent' }
       })
       if ((io || this.io) && leadId) {
         (io || this.io).emit('message:new', { leadId, message: savedMessage })
