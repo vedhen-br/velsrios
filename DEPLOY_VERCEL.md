@@ -123,6 +123,35 @@ Após salvar, faça Redeploy (as envs só entram na build).
 
 ---
 
+## 🔐 Ajustes Recomendados para Render (Backend)
+
+No painel do Render (onde o backend está hospedado), defina as seguintes variáveis de ambiente para permitir que o frontend implantado (Vercel) se conecte ao backend via CORS / socket.io:
+
+```
+FRONTEND_URL=https://velsrios.vercel.app
+EXTRA_ALLOWED_ORIGINS=https://velsrios.vercel.app
+# Para depuração temporária (NÃO recomendado em produção):
+ALLOW_ALL_ORIGINS=false
+```
+
+Explicação:
+- `FRONTEND_URL` é usado internamente para gerar links e referência de callback (webhook).  
+- `EXTRA_ALLOWED_ORIGINS` aceita uma lista separada por vírgula de domínios que o backend deve aceitar (CORS/socket.io).  
+- `ALLOW_ALL_ORIGINS=true` permite qualquer origem (útil só para debug rápido; remova em produção).
+
+Após salvar as variáveis no Render, reinicie o serviço para que as novas configurações entrem em vigor.
+
+## ✅ Checklist final — produção
+
+- [ ] No Render (backend): setar `POSTGRES_PRISMA_URL`, `POSTGRES_URL_NON_POOLING`, `JWT_SECRET`, `FRONTEND_URL`, `EXTRA_ALLOWED_ORIGINS` e reiniciar.  
+- [ ] No Vercel (frontend): setar `VITE_API_URL` e `VITE_WS_URL` apontando para o backend (`https://lead-campanha-api.onrender.com`) e redeploy.  
+- [ ] No Neon: confirmar credenciais e que o `POSTGRES_PRISMA_URL` fornecido ao Render consegue migrar/seed.  
+- [ ] Testar: Login (admin), abrir aba WhatsApp → clicar `Conectar via QR` e observar geração do QR no modal.  
+
+Se quiser, eu posso preparar um pequeno arquivo `scripts/deploy-envs.md` com comandos e o payload exato para usar nas CLIs (Vercel/Render) — me diga se prefere isso.
+
+---
+
 ## ⚙️ **Passo 3: Configurar Variáveis de Ambiente** (Legado – Vercel Postgres)
 
 ### 3.1. **No Painel Vercel:**
