@@ -295,8 +295,8 @@ router.patch('/leads/:id', async (req, res) => {
   const { stage, status, notes, priority, interest } = req.body
   const lead = await prisma.lead.findUnique({ where: { id: req.params.id } })
   if (!lead) return res.status(404).json({ error: 'Lead não encontrado' })
-  // Usuário comum só pode editar leads criados manualmente por ele
-  if (req.user.role !== 'admin' && (lead.origin !== 'manual' || lead.assignedTo !== req.user.id)) {
+  // Usuário comum pode editar se for o responsável (assignedTo)
+  if (req.user.role !== 'admin' && lead.assignedTo !== req.user.id) {
     return res.status(403).json({ error: 'Acesso negado' })
   }
   // Admin pode editar qualquer lead
@@ -313,6 +313,56 @@ router.patch('/leads/:id', async (req, res) => {
     data: { leadId: lead.id, action: 'updated', message: `Lead atualizado por ${req.user.name}` }
   })
   res.json(updated)
+})
+
+// Attach tag to lead
+router.post('/leads/:id/tags', async (req, res) => {
+  try {
+    const { tagId, name, color } = req.body
+    const lead = await prisma.lead.findUnique({ where: { id: req.params.id } })
+    if (!lead) return res.status(404).json({ error: 'Lead não encontrado' })
+
+    // Permissões: admin ou responsável pelo lead
+    if (req.user.role !== 'admin' && lead.assignedTo !== req.user.id) {
+      return res.status(403).json({ error: 'Acesso negado' })
+    }
+
+    let tId = tagId
+    if (!tId) {
+      // cria tag se não existir
+      const existing = await prisma.tag.findUnique({ where: { name } })
+      const tag = existing || await prisma.tag.create({ data: { name, color: color || '#3B82F6' } })
+      tId = tag.id
+    }
+
+    const updated = await prisma.lead.update({
+      where: { id: req.params.id },
+      data: { tags: { connect: { id: tId } } },
+      include: { tags: true }
+    })
+    res.json(updated.tags)
+  } catch (e) {
+    res.status(400).json({ error: 'Erro ao adicionar tag' })
+  }
+})
+
+// Detach tag from lead
+router.delete('/leads/:id/tags/:tagId', async (req, res) => {
+  try {
+    const lead = await prisma.lead.findUnique({ where: { id: req.params.id } })
+    if (!lead) return res.status(404).json({ error: 'Lead não encontrado' })
+    if (req.user.role !== 'admin' && lead.assignedTo !== req.user.id) {
+      return res.status(403).json({ error: 'Acesso negado' })
+    }
+    const updated = await prisma.lead.update({
+      where: { id: req.params.id },
+      data: { tags: { disconnect: { id: req.params.tagId } } },
+      include: { tags: true }
+    })
+    res.json(updated.tags)
+  } catch (e) {
+    res.status(400).json({ error: 'Erro ao remover tag' })
+  }
 })
 
 // Send message

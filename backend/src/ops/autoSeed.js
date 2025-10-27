@@ -56,4 +56,49 @@ async function autoSeedIfEmpty(prisma) {
   console.log('✅ Auto-seed concluído.')
 }
 
-module.exports = { autoSeedIfEmpty }
+async function seedUiDemoIfEnabled(prisma) {
+  const enabled = String(process.env.AUTO_SEED_UI || '').toLowerCase() === 'true'
+  if (!enabled) return
+
+  const phone = '559999000111'
+  const existing = await prisma.lead.findFirst({ where: { phone } })
+  if (existing) {
+    console.log('🟡 UI demo seed: lead de teste já existe.')
+    return
+  }
+
+  const admin = await prisma.user.findFirst({ where: { role: 'admin' } })
+  const user = await prisma.user.findFirst({ where: { role: 'user' } })
+
+  const assignedTo = user?.id || admin?.id || null
+
+  const lead = await prisma.lead.create({
+    data: {
+      name: 'Cliente Demo',
+      phone,
+      origin: 'whatsapp',
+      priority: 'medium',
+      stage: 'contacted',
+      assignedTo,
+      status: 'open',
+      interest: 'Plano Premium',
+      lastInteraction: new Date()
+    }
+  })
+
+  const now = Date.now()
+  await prisma.message.createMany({
+    data: [
+      { leadId: lead.id, text: 'Olá! Vi seu anúncio e tenho interesse.', direction: 'incoming', sender: 'customer', createdAt: new Date(now - 1000 * 60 * 60 * 24) },
+      { leadId: lead.id, text: 'Oi! Que bom falar com você. Posso ajudar com dúvidas e planos.', direction: 'outgoing', sender: 'agent', status: 'sent', createdAt: new Date(now - 1000 * 60 * 60 * 24 + 5 * 60 * 1000) },
+      { leadId: lead.id, text: 'Quais são as opções?', direction: 'incoming', sender: 'customer', createdAt: new Date(now - 1000 * 60 * 60) },
+      { leadId: lead.id, text: 'Temos o Plano Premium com suporte IA 24/7.', direction: 'outgoing', sender: 'agent', status: 'sent', createdAt: new Date(now - 1000 * 60 * 30) }
+    ]
+  })
+
+  await prisma.leadLog.create({ data: { leadId: lead.id, action: 'created', message: 'Lead de demonstração criado para validar UI' } })
+
+  console.log('✅ UI demo seed concluído.')
+}
+
+module.exports = { autoSeedIfEmpty, seedUiDemoIfEnabled }

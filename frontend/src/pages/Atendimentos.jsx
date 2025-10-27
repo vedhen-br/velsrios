@@ -13,6 +13,7 @@ export default function Atendimentos() {
   const [leads, setLeads] = useState([])
   const [selectedLead, setSelectedLead] = useState(null)
   const [messages, setMessages] = useState([])
+  const [groupedMessages, setGroupedMessages] = useState([])
   const [newMessage, setNewMessage] = useState('')
   const [filter, setFilter] = useState('all') // all, new, mine
   const [loading, setLoading] = useState(false)
@@ -52,6 +53,19 @@ export default function Atendimentos() {
 
   useEffect(() => {
     scrollToBottom()
+  }, [messages])
+
+  // Agrupa mensagens por dia
+  useEffect(() => {
+    const byDay = {}
+    messages.forEach(m => {
+      const d = new Date(m.createdAt)
+      const key = new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString()
+      if (!byDay[key]) byDay[key] = []
+      byDay[key].push(m)
+    })
+    const sections = Object.keys(byDay).sort().map(key => ({ date: new Date(key), items: byDay[key] }))
+    setGroupedMessages(sections)
   }, [messages])
 
   const scrollToBottom = () => {
@@ -425,64 +439,122 @@ export default function Atendimentos() {
                     <p className="text-sm text-gray-600">{selectedLead.phone}</p>
                   </div>
                 </div>
-                <div className="flex gap-2 items-center">
+                <div className="flex gap-3 items-center">
+                  {/* Tags */}
+                  <div className="hidden md:flex flex-wrap gap-2 max-w-[260px]">
+                    {selectedLead.tags?.map(t => (
+                      <span key={t.id} className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-700 border border-gray-200">
+                        {t.name}
+                      </span>
+                    ))}
+                  </div>
+                  {/* Prioridade e estágio */}
                   <div className="text-right">
-                    <div className={`px-3 py-1 rounded text-xs ${selectedLead.priority === 'high' ? 'bg-red-100 text-red-700' : selectedLead.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-700'}`}>{selectedLead.priority}</div>
-                    <div className="mt-1 px-3 py-1 rounded text-xs bg-blue-100 text-blue-700">{selectedLead.stage}</div>
+                    <div className={`px-3 py-1 rounded-full text-xs ${selectedLead.priority === 'high' ? 'bg-red-100 text-red-700' : selectedLead.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-700'}`}>{selectedLead.priority}</div>
+                    <div className="mt-1 px-3 py-1 rounded-full text-xs bg-blue-100 text-blue-700 inline-block">{selectedLead.stage}</div>
+                  </div>
+                  {/* Menu de ações */}
+                  <div className="relative">
+                    <details className="dropdown">
+                      <summary className="list-none cursor-pointer px-3 py-2 rounded-lg border text-sm hover:bg-gray-50">Ações ▾</summary>
+                      <div className="absolute right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg w-56 z-10">
+                        <button onClick={() => updateLeadStage('contacted')} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">Marcar como Contactado</button>
+                        <button onClick={() => updateLeadStage('qualified')} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">Marcar como Qualificado</button>
+                        <div className="h-px bg-gray-100 my-1" />
+                        <div className="px-3 py-2 text-xs text-gray-500">Prioridade</div>
+                        <div className="px-3 pb-2 flex gap-2">
+                          {['low', 'medium', 'high'].map(p => (
+                            <button key={p} onClick={async () => { await axios.patch(`${API}/leads/${selectedLead.id}`, { priority: p }, { headers: { Authorization: `Bearer ${token}` } }); await fetchLeadDetails(selectedLead.id) }} className={`text-xs px-2 py-1 rounded-full border ${selectedLead.priority === p ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300'}`}>{p}</button>
+                          ))}
+                        </div>
+                        <div className="h-px bg-gray-100 my-1" />
+                        <button onClick={async () => { await axios.patch(`${API}/leads/${selectedLead.id}`, { status: 'closed', stage: 'closed' }, { headers: { Authorization: `Bearer ${token}` } }); await fetchLeadDetails(selectedLead.id); await fetchLeads(); }} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">Fechar lead</button>
+                        <button onClick={async () => { await axios.patch(`${API}/leads/${selectedLead.id}`, { status: 'open', stage: 'contacted' }, { headers: { Authorization: `Bearer ${token}` } }); await fetchLeadDetails(selectedLead.id); await fetchLeads(); }} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">Reabrir lead</button>
+                        <div className="h-px bg-gray-100 my-1" />
+                        <div className="px-3 py-2">
+                          <form onSubmit={async (e) => {
+                            e.preventDefault();
+                            const name = e.target.tagNameInput.value.trim();
+                            if (!name) return;
+                            await axios.post(`${API}/leads/${selectedLead.id}/tags`, { name }, { headers: { Authorization: `Bearer ${token}` } });
+                            e.target.reset();
+                            await fetchLeadDetails(selectedLead.id);
+                          }}>
+                            <input name="tagNameInput" placeholder="+ adicionar tag" className="w-full border border-gray-300 rounded-lg px-2 py-1 text-sm" />
+                          </form>
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {selectedLead.tags?.map(t => (
+                              <button key={t.id} onClick={async () => { await axios.delete(`${API}/leads/${selectedLead.id}/tags/${t.id}`, { headers: { Authorization: `Bearer ${token}` } }); await fetchLeadDetails(selectedLead.id); }} className="text-xs px-2 py-0.5 rounded-full bg-gray-100 border border-gray-200 hover:bg-gray-200">{t.name} ×</button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </details>
                   </div>
                 </div>
               </div>
 
               {/* Área de Mensagens */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {messages.map((msg, idx) => {
-                  const isOutgoing = msg.direction === 'outgoing' || msg.sender === 'agent'
-                  const isBot = msg.sender === 'bot'
-                  const isCustomer = msg.sender === 'customer'
-
-                  return (
-                    <div key={msg.id || idx} className={`flex ${isOutgoing ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[70%] ${isOutgoing ? 'order-2' : 'order-1'}`}>
-                        <div className={`rounded-lg p-3 ${isBot ? 'bg-green-100' :
-                          isOutgoing ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200'
-                          }`}>
-                          {isCustomer && (
-                            <p className="text-xs text-gray-500 mb-1">{msg.sender}</p>
-                          )}
-                          {isBot && (
-                            <p className="text-xs text-green-700 mb-1 font-semibold">🤖 IA</p>
-                          )}
-
-                          {/* Mídia */}
-                          {msg.mediaUrl && (
-                            <div className="mb-2">
-                              {msg.mediaUrl.includes('image') || msg.text.includes('[IMAGEM]') ? (
-                                <img src={msg.mediaUrl} alt="Mídia" className="rounded max-w-full" />
-                              ) : (
-                                <a href={msg.mediaUrl} target="_blank" rel="noopener noreferrer" className="text-sm underline">
-                                  📎 Ver arquivo
-                                </a>
-                              )}
-                            </div>
-                          )}
-
-                          <p className="text-sm whitespace-pre-wrap">{msg.text || msg.content}</p>
-
-                          <div className="flex items-center gap-2 mt-1">
-                            <p className={`text-xs ${isOutgoing && !isBot ? 'text-blue-100' : 'text-gray-500'}`}>
-                              {formatTime(msg.createdAt)}
-                            </p>
-                            {isOutgoing && !isBot && msg.status && (
-                              <span className={`text-xs ${msg.status === 'read' ? 'text-blue-300' : 'text-blue-200'}`}>
-                                {getStatusIcon(msg.status)}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
+              <div className="flex-1 overflow-y-auto p-4 space-y-6">
+                {groupedMessages.map((section, sidx) => (
+                  <div key={sidx}>
+                    <div className="text-center my-2">
+                      <span className="inline-block bg-gray-200 text-gray-700 text-xs px-3 py-1 rounded-full shadow-sm">
+                        {formatDate(section.date)}
+                      </span>
                     </div>
-                  )
-                })}
+                    <div className="mt-2 space-y-3">
+                      {section.items.map((msg, idx) => {
+                        const isOutgoing = msg.direction === 'outgoing' || msg.sender === 'agent'
+                        const isBot = msg.sender === 'bot'
+                        const isCustomer = msg.sender === 'customer'
+
+                        return (
+                          <div key={msg.id || idx} className={`flex ${isOutgoing ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`max-w-[70%] ${isOutgoing ? 'order-2' : 'order-1'}`}>
+                              <div className={`rounded-2xl p-3 shadow ${isBot ? 'bg-emerald-50 text-emerald-900 border border-emerald-200' :
+                                isOutgoing ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-md' : 'bg-white border border-gray-200 shadow-sm'
+                                }`}>
+                                {isCustomer && (
+                                  <p className="text-xs text-gray-500 mb-1">{msg.sender}</p>
+                                )}
+                                {isBot && (
+                                  <p className="text-xs text-emerald-700 mb-1 font-semibold">🤖 IA</p>
+                                )}
+
+                                {/* Mídia */}
+                                {msg.mediaUrl && (
+                                  <div className="mb-2">
+                                    {msg.mediaUrl.includes('image') || msg.text.includes('[IMAGEM]') ? (
+                                      <img src={msg.mediaUrl} alt="Mídia" className="rounded max-w-full" />
+                                    ) : (
+                                      <a href={msg.mediaUrl} target="_blank" rel="noopener noreferrer" className="text-sm underline">
+                                        📎 Ver arquivo
+                                      </a>
+                                    )}
+                                  </div>
+                                )}
+
+                                <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.text || msg.content}</p>
+
+                                <div className="flex items-center gap-2 mt-1">
+                                  <p className={`text-[11px] ${isOutgoing && !isBot ? 'text-blue-100' : 'text-gray-500'}`}>
+                                    {formatTime(msg.createdAt)}
+                                  </p>
+                                  {isOutgoing && !isBot && msg.status && (
+                                    <span className={`text-[11px] ${msg.status === 'read' ? 'text-blue-200' : 'text-blue-100'}`}>
+                                      {getStatusIcon(msg.status)}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
 
                 {isTyping && (
                   <div className="flex justify-start">

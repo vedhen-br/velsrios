@@ -10,7 +10,7 @@ const { createServer } = require('http')
 const { Server } = require('socket.io')
 const { PrismaClient } = require('@prisma/client')
 const apiRoutes = require('./routes/api')
-const { autoSeedIfEmpty } = require('./ops/autoSeed')
+const { autoSeedIfEmpty, seedUiDemoIfEnabled } = require('./ops/autoSeed')
 const openapiSpec = require('./openapi.json')
 
 const app = express()
@@ -34,6 +34,8 @@ const allowedOrigins = [
   /^https:\/\/.*\.app\.github\.dev$/  // Codespaces preview
 ].filter(Boolean)
 
+// Log allowed origins on startup (helps debugging CORS issues)
+console.log('🌍 Allowed origins for CORS/socket.io:', allowedOrigins)
 // Configurar Socket.io com CORS
 const io = new Server(httpServer, {
   cors: {
@@ -43,12 +45,14 @@ const io = new Server(httpServer, {
 
       // Permitir requests sem origin (mobile apps, Postman, etc)
       if (!origin) return callback(null, true)
-
       const isAllowed = allowedOrigins.some(allowed => {
         if (typeof allowed === 'string') return allowed === origin
         if (allowed instanceof RegExp) return allowed.test(origin)
         return false
       })
+
+      if (!isAllowed) console.warn(`CORS/socket.io: origin rejected -> ${origin}`)
+      else console.log(`CORS/socket.io: origin allowed -> ${origin}`)
 
       callback(null, isAllowed)
     },
@@ -159,6 +163,7 @@ httpServer.listen(port, '0.0.0.0', async () => {
   // Auto-seed (opcional): cria usuários básicos se o banco estiver vazio
   try {
     await autoSeedIfEmpty(prisma)
+    await seedUiDemoIfEnabled(prisma)
   } catch (err) {
     console.warn('⚠️  Auto-seed ignorado:', err?.message)
   }
