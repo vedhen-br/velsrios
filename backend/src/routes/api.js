@@ -79,9 +79,21 @@ router.use(authMiddleware)
 router.get('/me', async (req, res) => {
   const user = await prisma.user.findUnique({
     where: { id: req.user.id },
-    select: { id: true, name: true, email: true, role: true, phone: true, available: true, maxLeads: true }
+    select: { id: true, name: true, email: true, role: true, phone: true, available: true, maxLeads: true, data: true }
   })
-  res.json(user)
+
+  // Permissões via JSON (admin tem todas)
+  let permissions = { canDeleteConversation: false, canTransferLead: false, canToggleAI: false }
+  try {
+    const parsed = JSON.parse(user?.data || '{}')
+    permissions = { ...permissions, ...(parsed?.permissions || {}) }
+  } catch { }
+  if (user.role === 'admin') {
+    permissions = { canDeleteConversation: true, canTransferLead: true, canToggleAI: true }
+  }
+
+  const { data, ...rest } = user || {}
+  res.json({ ...rest, permissions })
 })
 
 // Get dashboard stats
@@ -137,6 +149,7 @@ router.get('/leads/stats', async (req, res) => {
 
 // List users (admin ou próprio perfil)
 router.get('/users', async (req, res) => {
+  // Admin sempre vê todos
   if (req.user.role === 'admin') {
     const users = await prisma.user.findMany({
       select: { id: true, name: true, email: true, role: true, available: true, maxLeads: true, createdAt: true }
@@ -144,7 +157,22 @@ router.get('/users', async (req, res) => {
     return res.json(users)
   }
 
-  // User comum vê apenas o próprio perfil
+  // Usuário com permissão de transferir também pode listar todos
+  const me = await prisma.user.findUnique({ where: { id: req.user.id } })
+  let canTransfer = false
+  try {
+    const parsed = JSON.parse(me?.data || '{}')
+    canTransfer = !!parsed?.permissions?.canTransferLead
+  } catch { }
+
+  if (canTransfer) {
+    const users = await prisma.user.findMany({
+      select: { id: true, name: true, email: true, role: true, available: true }
+    })
+    return res.json(users)
+  }
+
+  // Caso contrário, vê apenas o próprio perfil
   const user = await prisma.user.findUnique({
     where: { id: req.user.id },
     select: { id: true, name: true, email: true, role: true }
@@ -246,11 +274,10 @@ router.get('/leads/:id', async (req, res) => {
     }
   })
   if (!lead) return res.status(404).json({ error: 'Lead não encontrado' })
-  // Usuário comum só pode acessar leads criados manualmente por ele
-  if (req.user.role !== 'admin' && (lead.origin !== 'manual' || lead.assignedTo !== req.user.id)) {
+  // Usuário comum pode acessar leads atribuídos a ele (origin manual ou whatsapp)
+  if (req.user.role !== 'admin' && lead.assignedTo !== req.user.id) {
     return res.status(403).json({ error: 'Acesso negado' })
   }
-  // Admin pode acessar qualquer lead
   res.json(lead)
 })
 
@@ -529,11 +556,20 @@ router.post('/distribute', adminOnly, async (req, res) => {
 router.delete('/leads/:id', async (req, res) => {
   const lead = await prisma.lead.findUnique({ where: { id: req.params.id } })
   if (!lead) return res.status(404).json({ error: 'Lead não encontrado' })
-  // Usuário comum só pode excluir leads criados manualmente por ele
-  if (req.user.role !== 'admin' && (lead.origin !== 'manual' || lead.assignedTo !== req.user.id)) {
-    return res.status(403).json({ error: 'Acesso negado' })
+  // Permissões
+  if (req.user.role !== 'admin') {
+    // Apenas dono com permissão explícita pode excluir
+    const me = await prisma.user.findUnique({ where: { id: req.user.id } })
+    let canDelete = false
+    try {
+      const parsed = JSON.parse(me?.data || '{}')
+      canDelete = !!parsed?.permissions?.canDeleteConversation
+    } catch { }
+    if (!(lead.assignedTo === req.user.id && canDelete)) {
+      return res.status(403).json({ error: 'Acesso negado' })
+    }
   }
-  // Admin pode excluir qualquer lead
+
   await prisma.message.deleteMany({ where: { leadId: req.params.id } })
   await prisma.leadLog.deleteMany({ where: { leadId: req.params.id } })
   await prisma.task.deleteMany({ where: { leadId: req.params.id } })
@@ -565,6 +601,49 @@ router.post('/leads/bulk', adminOnly, async (req, res) => {
   }
 
   res.status(400).json({ error: 'Ação inválida' })
+})
+
+// Transferir lead para outro usuário (admin ou permissão específica)
+router.patch('/leads/:id/assign/:userId', async (req, res) => {
+  const lead = await prisma.lead.findUnique({ where: { id: req.params.id } })
+  if (!lead) return res.status(404).json({ error: 'Lead não encontrado' })
+
+  let allowed = req.user.role === 'admin'
+  if (!allowed) {
+    const me = await prisma.user.findUnique({ where: { id: req.user.id } })
+    try {
+      const parsed = JSON.parse(me?.data || '{}')
+      allowed = !!parsed?.permissions?.canTransferLead
+    } catch { }
+  }
+  if (!allowed) return res.status(403).json({ error: 'Acesso negado' })
+
+  const updated = await prisma.lead.update({ where: { id: req.params.id }, data: { assignedTo: req.params.userId } })
+  await prisma.leadLog.create({ data: { leadId: lead.id, userId: req.user.id, action: 'transfer', message: `Lead transferido para usuário ${req.params.userId}` } })
+  res.json(updated)
+})
+
+// Alternar IA por lead
+router.patch('/leads/:id/ai', async (req, res) => {
+  const { enabled } = req.body
+  const lead = await prisma.lead.findUnique({ where: { id: req.params.id } })
+  if (!lead) return res.status(404).json({ error: 'Lead não encontrado' })
+
+  // Permissões: admin ou responsável com permissão para alternar IA
+  if (req.user.role !== 'admin') {
+    if (lead.assignedTo !== req.user.id) return res.status(403).json({ error: 'Acesso negado' })
+    const me = await prisma.user.findUnique({ where: { id: req.user.id } })
+    let canToggle = false
+    try {
+      const parsed = JSON.parse(me?.data || '{}')
+      canToggle = !!parsed?.permissions?.canToggleAI
+    } catch { }
+    if (!canToggle) return res.status(403).json({ error: 'Acesso negado' })
+  }
+
+  const updated = await prisma.lead.update({ where: { id: req.params.id }, data: { aiEnabled: !!enabled } })
+  await prisma.leadLog.create({ data: { leadId: lead.id, userId: req.user.id, action: 'ai', message: `IA ${enabled ? 'ativada' : 'desativada'}` } })
+  res.json(updated)
 })
 
 // Export leads to CSV (admin only)

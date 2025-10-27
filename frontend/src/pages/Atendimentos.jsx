@@ -19,6 +19,9 @@ export default function Atendimentos() {
   const [loading, setLoading] = useState(false)
   const [isTyping, setIsTyping] = useState(false)
   const [waStatus, setWaStatus] = useState('unknown') // disconnected | qr | connecting | connected | unknown
+  const [users, setUsers] = useState([])
+  const [showTransfer, setShowTransfer] = useState(false)
+  const [transferUserId, setTransferUserId] = useState('')
   // Removido: criação manual de lead neste fluxo (apenas leads do WhatsApp)
   const [stats, setStats] = useState({
     totalLeads: 0,
@@ -28,6 +31,7 @@ export default function Atendimentos() {
     converted: 0
   })
   const messagesEndRef = useRef(null)
+  const messagesContainerRef = useRef(null)
   const typingTimeoutRef = useRef(null)
 
   // Fetch inicial
@@ -87,7 +91,12 @@ export default function Atendimentos() {
   }, [messages])
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const el = messagesContainerRef.current
+    if (el) {
+      el.scrollTop = el.scrollHeight
+    } else {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'instant' })
+    }
   }
 
   async function fetchLeads() {
@@ -126,6 +135,18 @@ export default function Atendimentos() {
       })
     }
   }
+
+  // Carregar lista de usuários (para transferência) quando permitido
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        if (!token) return
+        const res = await axios.get(`${API}/users`, { headers: { Authorization: `Bearer ${token}` } })
+        setUsers(res.data || [])
+      } catch { }
+    }
+    loadUsers()
+  }, [token])
 
   async function fetchLeadDetails(leadId) {
     try {
@@ -390,9 +411,9 @@ export default function Atendimentos() {
       </div>
 
       {/* Interface de Atendimento */}
-  <div className="flex flex-1 bg-gray-100 min-h-0">
+      <div className="flex flex-1 bg-gray-100 min-h-0">
         {/* Coluna 1: Lista de Conversas */}
-  <div className="w-80 bg-white border-r border-gray-200 flex flex-col min-h-0">
+        <div className="w-80 bg-white border-r border-gray-200 flex flex-col min-h-0">
           {/* Header */}
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between mb-3">
@@ -476,7 +497,7 @@ export default function Atendimentos() {
         </div>
 
         {/* Coluna 2: Chat */}
-  <div className="flex-1 flex flex-col bg-gray-50 min-h-0">
+        <div className="flex-1 flex flex-col bg-gray-50 min-h-0">
           {selectedLead ? (
             <>
               {/* Header do Chat */}
@@ -511,7 +532,7 @@ export default function Atendimentos() {
                   <div className="relative">
                     <details className="dropdown">
                       <summary className="list-none cursor-pointer px-3 py-2 rounded-lg border text-sm hover:bg-gray-50">Ações ▾</summary>
-                      <div className="absolute right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg w-56 z-10">
+                      <div className="absolute right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg w-64 z-10">
                         <button onClick={() => updateLeadStage('contacted')} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">Marcar como Contactado</button>
                         <button onClick={() => updateLeadStage('qualified')} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">Marcar como Qualificado</button>
                         <div className="h-px bg-gray-100 my-1" />
@@ -528,6 +549,31 @@ export default function Atendimentos() {
                         {/* Assumir lead */}
                         {(!selectedLead.assignedTo || user.role === 'admin') && (
                           <button onClick={async () => { await axios.patch(`${API}/leads/${selectedLead.id}/assign/self`, {}, { headers: { Authorization: `Bearer ${token}` } }); await fetchLeadDetails(selectedLead.id); await fetchLeads(); }} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">Assumir lead</button>
+                        )}
+                        {/* Transferir lead */}
+                        {(user?.role === 'admin' || user?.permissions?.canTransferLead) && (
+                          <div className="px-3 py-2">
+                            <div className="text-xs text-gray-500 mb-1">Transferir para</div>
+                            <div className="flex gap-2">
+                              <select value={transferUserId} onChange={e => setTransferUserId(e.target.value)} className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm">
+                                <option value="">Selecione...</option>
+                                {users.filter(u => u.id !== selectedLead.assignedTo).map(u => (
+                                  <option key={u.id} value={u.id}>{u.name || u.email}</option>
+                                ))}
+                              </select>
+                              <button disabled={!transferUserId} onClick={async () => { await axios.patch(`${API}/leads/${selectedLead.id}/assign/${transferUserId}`, {}, { headers: { Authorization: `Bearer ${token}` } }); setTransferUserId(''); await fetchLeadDetails(selectedLead.id); await fetchLeads(); }} className="px-2 py-1 text-sm border rounded disabled:opacity-50">Transferir</button>
+                            </div>
+                          </div>
+                        )}
+                        <div className="h-px bg-gray-100 my-1" />
+                        {/* IA On/Off */}
+                        {(user?.role === 'admin' || user?.permissions?.canToggleAI) && (
+                          <button onClick={async () => { const enabled = !selectedLead.aiEnabled; await axios.patch(`${API}/leads/${selectedLead.id}/ai`, { enabled }, { headers: { Authorization: `Bearer ${token}` } }); await fetchLeadDetails(selectedLead.id); }} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">{selectedLead.aiEnabled ? 'Desligar IA' : 'Ligar IA'}</button>
+                        )}
+                        <div className="h-px bg-gray-100 my-1" />
+                        {/* Excluir conversa */}
+                        {(user?.role === 'admin' || user?.permissions?.canDeleteConversation) && (
+                          <button onClick={async () => { if (confirm('Excluir esta conversa? Esta ação não pode ser desfeita.')) { await axios.delete(`${API}/leads/${selectedLead.id}`, { headers: { Authorization: `Bearer ${token}` } }); setSelectedLead(null); await fetchLeads(); } }} className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50">Excluir conversa</button>
                         )}
                         <div className="h-px bg-gray-100 my-1" />
                         <div className="px-3 py-2">
@@ -554,7 +600,7 @@ export default function Atendimentos() {
               </div>
 
               {/* Área de Mensagens */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-6">
+              <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-6 overscroll-contain">
                 {groupedMessages.map((section, sidx) => (
                   <div key={sidx}>
                     <div className="text-center my-2">
@@ -620,7 +666,7 @@ export default function Atendimentos() {
                                     alert('Não foi possível apagar a mensagem')
                                   }
                                 }}
-                                className="absolute -top-2 ${isOutgoing ? 'right-0' : 'left-0'} hidden group-hover:block text-xs text-gray-400 hover:text-red-600"
+                                className={`absolute -top-2 ${isOutgoing ? 'right-0' : 'left-0'} hidden group-hover:block text-xs text-gray-400 hover:text-red-600`}
                                 title="Apagar mensagem"
                               >🗑️</button>
                             ) : null}

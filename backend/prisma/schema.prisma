@@ -43,6 +43,7 @@ model Lead {
   interest        String?
   notes           String?
   data            String?
+  aiEnabled       Boolean   @default(true)
   lastInteraction DateTime?
   messages        Message[]
   logs            LeadLog[]

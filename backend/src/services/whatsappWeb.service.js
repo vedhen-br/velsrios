@@ -112,6 +112,7 @@ class WhatsAppWebService {
               phone,
               origin: 'whatsapp',
               status: 'open',
+              aiEnabled: true,
               assignedTo: assigned?.id || null,
               lastInteraction: timestamp
             }
@@ -135,12 +136,16 @@ class WhatsAppWebService {
 
         // Gerar resposta automática via IA (classificador/responder simples)
         try {
-          const aiResponse = aiClassifier.generateResponse(text)
-          if (aiResponse) {
-            // Enviar resposta ao usuário via WhatsApp e persistir como 'bot' internamente
-            const sendRes = await this.sendMessage(phone, aiResponse, this.io, lead.id, 'bot')
-            // sendMessage already emits 'message:new' when leadId provided
-            if (!sendRes.success) console.warn('IA: envio via WhatsApp falhou', sendRes.error)
+          // Responder apenas se IA estiver habilitada para este lead
+          const checkLead = await prisma.lead.findUnique({ where: { id: lead.id } })
+          if (checkLead?.aiEnabled) {
+            const aiResponse = aiClassifier.generateResponse(text)
+            if (aiResponse) {
+              // Enviar resposta ao usuário via WhatsApp e persistir como 'bot' internamente
+              const sendRes = await this.sendMessage(phone, aiResponse, this.io, lead.id, 'bot')
+              // sendMessage already emits 'message:new' when leadId provided
+              if (!sendRes.success) console.warn('IA: envio via WhatsApp falhou', sendRes.error)
+            }
           }
         } catch (e) {
           console.error('Erro ao gerar/enviar resposta IA:', e)
