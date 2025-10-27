@@ -326,7 +326,7 @@ export default function Atendimentos() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
+    <div className="flex flex-col h-screen overflow-hidden bg-gray-50">
       {/* Dashboard Header com Stats */}
       <div className="bg-white border-b border-gray-200 p-4">
         <div className="max-w-7xl mx-auto">

@@ -407,7 +407,13 @@ export default function Configuracoes() {
                             </button>
                             <button
                               onClick={() => {
-                                setSelectedUser(u)
+                                // extrai permissões do campo data (JSON)
+                                let permissions = { canTransferLead: false, canDeleteConversation: false, canToggleAI: false }
+                                try {
+                                  const parsed = JSON.parse(u?.data || '{}')
+                                  permissions = { ...permissions, ...(parsed?.permissions || {}) }
+                                } catch { }
+                                setSelectedUser({ ...u, permissions })
                                 setShowUserModal(true)
                               }}
                               className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
@@ -1019,6 +1025,46 @@ export default function Configuracoes() {
                 <h3 className="font-semibold text-gray-900 mb-3">⚙️ Permissões</h3>
 
                 <div className="space-y-2">
+                  {/* Permissões avançadas controladas pelo admin */}
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="permTransfer"
+                      checked={!!selectedUser?.permissions?.canTransferLead}
+                      onChange={(e) => setSelectedUser({ ...selectedUser, permissions: { ...selectedUser.permissions, canTransferLead: e.target.checked } })}
+                      className="w-4 h-4"
+                    />
+                    <label htmlFor="permTransfer" className="text-sm text-gray-700">
+                      🔄 Pode transferir conversas para outros usuários
+                    </label>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="permDelete"
+                      checked={!!selectedUser?.permissions?.canDeleteConversation}
+                      onChange={(e) => setSelectedUser({ ...selectedUser, permissions: { ...selectedUser.permissions, canDeleteConversation: e.target.checked } })}
+                      className="w-4 h-4"
+                    />
+                    <label htmlFor="permDelete" className="text-sm text-gray-700">
+                      🗑️ Pode excluir conversas
+                    </label>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="permAI"
+                      checked={!!selectedUser?.permissions?.canToggleAI}
+                      onChange={(e) => setSelectedUser({ ...selectedUser, permissions: { ...selectedUser.permissions, canToggleAI: e.target.checked } })}
+                      className="w-4 h-4"
+                    />
+                    <label htmlFor="permAI" className="text-sm text-gray-700">
+                      🤖 Pode ligar/desligar IA por lead
+                    </label>
+                  </div>
+
                   <div className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -1176,7 +1222,8 @@ export default function Configuracoes() {
                 onClick={() => updateUser(selectedUser.id, {
                   maxLeads: selectedUser.maxLeads,
                   role: selectedUser.role,
-                  available: selectedUser.available
+                  available: selectedUser.available,
+                  permissions: selectedUser.permissions
                 })}
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >

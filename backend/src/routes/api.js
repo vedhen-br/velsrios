@@ -152,7 +152,7 @@ router.get('/users', async (req, res) => {
   // Admin sempre vê todos
   if (req.user.role === 'admin') {
     const users = await prisma.user.findMany({
-      select: { id: true, name: true, email: true, role: true, available: true, maxLeads: true, createdAt: true }
+      select: { id: true, name: true, email: true, role: true, available: true, maxLeads: true, createdAt: true, data: true }
     })
     return res.json(users)
   }
@@ -167,7 +167,7 @@ router.get('/users', async (req, res) => {
 
   if (canTransfer) {
     const users = await prisma.user.findMany({
-      select: { id: true, name: true, email: true, role: true, available: true }
+      select: { id: true, name: true, email: true, role: true, available: true, data: true }
     })
     return res.json(users)
   }
@@ -175,7 +175,7 @@ router.get('/users', async (req, res) => {
   // Caso contrário, vê apenas o próprio perfil
   const user = await prisma.user.findUnique({
     where: { id: req.user.id },
-    select: { id: true, name: true, email: true, role: true }
+    select: { id: true, name: true, email: true, role: true, data: true }
   })
   res.json([user])
 })
