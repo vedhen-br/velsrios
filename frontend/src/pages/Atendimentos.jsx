@@ -8,7 +8,7 @@ import { getApiUrl } from '../utils/env'
 const API = getApiUrl()
 
 export default function Atendimentos() {
-  const { user, socket, isConnected } = useAuth()
+  const { user, token, socket, isConnected } = useAuth()
   const { notify } = useNotifications()
   const [leads, setLeads] = useState([])
   const [selectedLead, setSelectedLead] = useState(null)
@@ -17,8 +17,7 @@ export default function Atendimentos() {
   const [filter, setFilter] = useState('all') // all, new, mine
   const [loading, setLoading] = useState(false)
   const [isTyping, setIsTyping] = useState(false)
-  const [isCreating, setIsCreating] = useState(false)
-  const [newLead, setNewLead] = useState({ name: '', phone: '', email: '', interest: '' })
+  // Removido: criação manual de lead neste fluxo (apenas leads do WhatsApp)
   const [stats, setStats] = useState({
     totalLeads: 0,
     todayLeads: 0,
@@ -61,77 +60,26 @@ export default function Atendimentos() {
 
   async function fetchLeads() {
     try {
-      const params = new URLSearchParams()
-      if (filter === 'new') params.append('stage', 'new')
-      if (filter === 'mine' && user.role !== 'admin') params.append('assignedTo', user.id)
-      const res = await axios.get(`${API}/leads/atendimento?${params}`)
+      const params = {}
+      if (filter === 'new') params.stage = 'new'
+      if (filter === 'mine' && user.role !== 'admin') params.assignedTo = user.id
+      // Apenas leads de origem WhatsApp
+      params.origin = 'whatsapp'
+
+      const res = await axios.get(`${API}/leads/atendimento`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params
+      })
       setLeads(res.data || [])
     } catch (e) {
       console.error('Erro ao carregar leads:', e)
-      // Fallback com dados mock para desenvolvimento
-      setLeads([
-        {
-          id: 1,
-          name: 'João Silva',
-          phone: '11999887766',
-          stage: 'new',
-          priority: 'high',
-          lastInteraction: new Date(),
-          messages: [{ text: 'Olá, tenho interesse em seus produtos!' }]
-        },
-        {
-          id: 2,
-          name: 'Maria Santos',
-          phone: '11888776655',
-          stage: 'contacted',
-          priority: 'medium',
-          lastInteraction: new Date(),
-          messages: [{ text: 'Gostaria de mais informações' }]
-        },
-        {
-          id: 3,
-          name: 'Pedro Costa',
-          phone: '11777665544',
-          stage: 'qualified',
-          priority: 'low',
-          lastInteraction: new Date(),
-          messages: [{ text: 'Quando posso agendar uma reunião?' }]
-        }
-      ])
-    }
-  }
-
-  async function createLead(e) {
-    e?.preventDefault()
-    if (!newLead.phone?.trim()) {
-      alert('Informe ao menos o telefone')
-      return
-    }
-    try {
-      setLoading(true)
-      const payload = {
-        name: newLead.name?.trim() || undefined,
-        phone: newLead.phone?.replace(/\D/g, ''),
-        email: newLead.email?.trim() || undefined,
-        interest: newLead.interest?.trim() || undefined
-      }
-      const res = await axios.post(`${API}/leads`, payload)
-      setIsCreating(false)
-      setNewLead({ name: '', phone: '', email: '', interest: '' })
-      // Atualiza listas e abre o lead criado
-      await fetchLeads()
-      setSelectedLead(res.data)
-      await fetchLeadDetails(res.data.id)
-    } catch (err) {
-      alert(err?.response?.data?.error || 'Erro ao criar lead')
-    } finally {
-      setLoading(false)
+      setLeads([])
     }
   }
 
   async function fetchStats() {
     try {
-      const res = await axios.get(`${API}/leads/stats`)
+      const res = await axios.get(`${API}/leads/stats`, { headers: { Authorization: `Bearer ${token}` } })
       setStats(res.data || stats)
     } catch (e) {
       console.error('Erro ao carregar estatísticas:', e)
@@ -149,7 +97,7 @@ export default function Atendimentos() {
 
   async function fetchLeadDetails(leadId) {
     try {
-      const res = await axios.get(`${API}/leads/${leadId}`)
+      const res = await axios.get(`${API}/leads/${leadId}`, { headers: { Authorization: `Bearer ${token}` } })
       setSelectedLead(res.data)
       setMessages(res.data.messages || [])
     } catch (e) {
@@ -221,7 +169,7 @@ export default function Atendimentos() {
 
     setLoading(true)
     try {
-      const res = await axios.post(`${API}/leads/${selectedLead.id}/messages`, { text: newMessage })
+      const res = await axios.post(`${API}/leads/${selectedLead.id}/messages`, { text: newMessage }, { headers: { Authorization: `Bearer ${token}` } })
       setNewMessage('')
 
       // Adiciona mensagem otimisticamente
@@ -258,7 +206,7 @@ export default function Atendimentos() {
   async function updateLeadStage(stage) {
     if (!selectedLead) return
     try {
-      await axios.patch(`${API}/leads/${selectedLead.id}`, { stage })
+      await axios.patch(`${API}/leads/${selectedLead.id}`, { stage }, { headers: { Authorization: `Bearer ${token}` } })
       await fetchLeadDetails(selectedLead.id)
       await fetchLeads()
     } catch (e) {
@@ -289,7 +237,7 @@ export default function Atendimentos() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
+    <div className="flex flex-col min-h-screen bg-gray-50">
       {/* Dashboard Header com Stats */}
       <div className="bg-white border-b border-gray-200 p-4">
         <div className="max-w-7xl mx-auto">
@@ -413,13 +361,6 @@ export default function Atendimentos() {
                 Meus
               </button>
               <div className="flex-1" />
-              <button
-                onClick={() => setIsCreating(true)}
-                className="px-3 py-1 rounded text-sm bg-emerald-600 text-white hover:bg-emerald-700"
-                title="Criar lead manual"
-              >
-                + Novo Lead
-              </button>
             </div>
           </div>
 
@@ -679,63 +620,7 @@ export default function Atendimentos() {
         )}
       </div>
 
-      {/* Modal: Criar Lead */}
-      {isCreating && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white w-full max-w-md rounded-xl shadow-xl p-6">
-            <h3 className="text-lg font-semibold mb-4">Novo Lead</h3>
-            <form onSubmit={createLead} className="space-y-3">
-              <div>
-                <label className="text-xs text-gray-500">Nome</label>
-                <input
-                  type="text"
-                  className="w-full px-3 py-2 border rounded-lg"
-                  value={newLead.name}
-                  onChange={e => setNewLead(v => ({ ...v, name: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500">Telefone (apenas números)</label>
-                <input
-                  type="tel"
-                  required
-                  pattern="[0-9]+"
-                  className="w-full px-3 py-2 border rounded-lg"
-                  placeholder="11999999999"
-                  value={newLead.phone}
-                  onChange={e => setNewLead(v => ({ ...v, phone: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500">Email</label>
-                <input
-                  type="email"
-                  className="w-full px-3 py-2 border rounded-lg"
-                  value={newLead.email}
-                  onChange={e => setNewLead(v => ({ ...v, email: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500">Interesse</label>
-                <input
-                  type="text"
-                  className="w-full px-3 py-2 border rounded-lg"
-                  value={newLead.interest}
-                  onChange={e => setNewLead(v => ({ ...v, interest: e.target.value }))}
-                />
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setIsCreating(false)} className="px-4 py-2 rounded border">
-                  Cancelar
-                </button>
-                <button type="submit" disabled={loading} className="px-4 py-2 rounded bg-emerald-600 text-white">
-                  {loading ? 'Criando...' : 'Criar'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Removido: modal de criação de lead manual */}
     </div>
   )
 }
