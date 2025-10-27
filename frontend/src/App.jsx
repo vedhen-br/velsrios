@@ -12,6 +12,7 @@ import Perfil from './pages/Perfil'
 import Layout from './components/Layout'
 import ErrorBoundary from './components/ErrorBoundary'
 import DebugBar from './components/DebugBar'
+import VersionBadge from './components/VersionBadge'
 
 function AppContent() {
   const { user, loading } = useAuth()
@@ -50,9 +51,9 @@ function AppContent() {
       }
     }
 
-    // checa ao montar e depois a cada 60s
+    // checa ao montar e depois a cada 15s
     checkVersion()
-    timer = setInterval(checkVersion, 60000)
+    timer = setInterval(checkVersion, 15000)
     return () => timer && clearInterval(timer)
   }, [])
 
@@ -105,7 +106,7 @@ function AppContent() {
         }}>
           <span>Nova versão disponível</span>
           {latestInfo?.commit && (
-            <span style={{ opacity: 0.8 }}>({latestInfo.commit.slice(0,7)})</span>
+            <span style={{ opacity: 0.8 }}>({latestInfo.commit.slice(0, 7)})</span>
           )}
           <button
             onClick={() => window.location.reload()}
@@ -113,6 +114,7 @@ function AppContent() {
           >Atualizar</button>
         </div>
       )}
+      <VersionBadge />
       <DebugBar />
     </ErrorBoundary>
   )
