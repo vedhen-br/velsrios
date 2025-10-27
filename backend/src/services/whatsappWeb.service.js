@@ -10,6 +10,7 @@ const {
 } = require('@whiskeysockets/baileys')
 
 const prisma = new PrismaClient()
+const aiClassifier = require('./aiClassifier')
 
 class WhatsAppWebService {
   constructor() {
@@ -122,6 +123,26 @@ class WhatsAppWebService {
         if (this.io) {
           this.io.emit('message:new', { leadId: lead.id, message: savedMessage, lead })
         }
+
+        // Gerar resposta automática via IA (classificador/responder simples)
+        try {
+          const aiResponse = aiClassifier.generateResponse(text)
+          if (aiResponse) {
+            // Persistir mensagem do bot
+            const botMsg = await prisma.message.create({
+              data: { leadId: lead.id, content: aiResponse, sender: 'bot', createdAt: new Date() }
+            })
+
+            // Emitir evento para o frontend (mostra a mensagem da IA)
+            if (this.io) this.io.emit('message:new', { leadId: lead.id, message: botMsg, lead })
+
+            // Enviar resposta ao usuário via WhatsApp (como agente)
+            // Nota: sendMessage persiste a mensagem também; passamos sender 'agent' para compatibilidade
+            await this.sendMessage(phone, aiResponse, this.io, lead.id, 'agent')
+          }
+        } catch (e) {
+          console.error('Erro ao gerar/enviar resposta IA:', e)
+        }
       } catch (err) {
         console.error('Erro ao processar mensagem (Baileys):', err)
       }
@@ -188,7 +209,7 @@ class WhatsAppWebService {
     }
   }
 
-  async sendMessage(to, message, io = null, leadId = null) {
+  async sendMessage(to, message, io = null, leadId = null, sender = 'agent') {
     try {
       if (!this.isConnected()) return { success: false, error: 'not-connected' }
       const jid = `${String(to).replace(/\D/g, '')}@s.whatsapp.net`
@@ -196,7 +217,7 @@ class WhatsAppWebService {
 
       // Persistir mensagem como enviada pelo agente
       const savedMessage = await prisma.message.create({
-        data: { leadId, content: message, sender: 'agent', status: 'sent' }
+        data: { leadId, content: message, sender: sender || 'agent', status: 'sent' }
       })
       if ((io || this.io) && leadId) {
         (io || this.io).emit('message:new', { leadId, message: savedMessage })
