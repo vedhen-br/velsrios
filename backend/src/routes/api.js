@@ -186,7 +186,8 @@ router.get('/leads', async (req, res) => {
 })
 
 // Get single lead
-router.get('/leads/:id', async (req, res) => {
+// Use numeric id to avoid conflicting with fixed subpaths like '/leads/atendimento'
+router.get('/leads/:id(\\d+)', async (req, res) => {
   const lead = await prisma.lead.findUnique({
     where: { id: req.params.id },
     include: {
@@ -244,7 +245,7 @@ router.post('/leads', async (req, res) => {
 })
 
 // Update lead
-router.patch('/leads/:id', async (req, res) => {
+router.patch('/leads/:id(\\d+)', async (req, res) => {
   const { stage, status, notes, priority, interest } = req.body
   const lead = await prisma.lead.findUnique({ where: { id: req.params.id } })
   if (!lead) return res.status(404).json({ error: 'Lead não encontrado' })
@@ -269,7 +270,7 @@ router.patch('/leads/:id', async (req, res) => {
 })
 
 // Send message
-router.post('/leads/:id/messages', async (req, res) => {
+router.post('/leads/:id(\\d+)/messages', async (req, res) => {
   const { text } = req.body
   if (!text) return res.status(400).json({ error: 'text obrigatório' })
 
@@ -378,7 +379,7 @@ router.post('/distribute', adminOnly, async (req, res) => {
 
 // Delete lead (admin only)
 // Delete lead
-router.delete('/leads/:id', async (req, res) => {
+router.delete('/leads/:id(\\d+)', async (req, res) => {
   const lead = await prisma.lead.findUnique({ where: { id: req.params.id } })
   if (!lead) return res.status(404).json({ error: 'Lead não encontrado' })
   // Usuário comum só pode excluir leads criados manualmente por ele
@@ -395,7 +396,7 @@ router.delete('/leads/:id', async (req, res) => {
 // List leads for atendimento (chat interface)
 router.get('/leads/atendimento', async (req, res) => {
   try {
-    const { stage, assignedTo } = req.query
+    const { stage, assignedTo, origin } = req.query
 
     let where = {}
 
@@ -405,8 +406,9 @@ router.get('/leads/atendimento', async (req, res) => {
     }
 
     // Filtros opcionais
-    if (stage) where.stage = stage
+  if (stage) where.stage = stage
     if (assignedTo && req.user.role === 'admin') where.assignedTo = assignedTo
+  if (origin) where.origin = origin
 
     const leads = await prisma.lead.findMany({
       where,
@@ -783,8 +785,8 @@ router.post('/whatsapp/web/start', adminOnly, async (req, res) => {
     const result = await whatsappWebService.startSession(io)
     res.json(result)
   } catch (error) {
-    console.error('Erro ao iniciar sessão WhatsApp Web:', error)
-    res.status(500).json({ error: 'Erro ao iniciar sessão WhatsApp Web' })
+    console.error('Erro ao iniciar sessão WhatsApp Web:', error?.stack || error?.message || error)
+    res.status(500).json({ error: error?.message || 'Erro ao iniciar sessão WhatsApp Web' })
   }
 })
 
