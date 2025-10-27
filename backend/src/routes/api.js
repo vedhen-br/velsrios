@@ -785,11 +785,21 @@ router.get('/reports/analytics', adminOnly, async (req, res) => {
 
 // Update user (admin only)
 router.patch('/users/:id', adminOnly, async (req, res) => {
-  const { available, maxLeads, role } = req.body
+  const { available, maxLeads, role, permissions } = req.body
+
+  // Merge permissions into data JSON if provided
+  let dataUpdate = undefined
+  if (permissions) {
+    const current = await prisma.user.findUnique({ where: { id: req.params.id }, select: { data: true } })
+    let json = {}
+    try { json = JSON.parse(current?.data || '{}') } catch {}
+    json.permissions = { ...(json.permissions || {}), ...permissions }
+    dataUpdate = JSON.stringify(json)
+  }
 
   const user = await prisma.user.update({
     where: { id: req.params.id },
-    data: { available, maxLeads, role }
+    data: { available, maxLeads, role, data: dataUpdate !== undefined ? dataUpdate : undefined }
   })
 
   res.json(user)
