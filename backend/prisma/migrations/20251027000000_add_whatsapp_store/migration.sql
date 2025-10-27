@@ -1,0 +1,6 @@
+-- CreateTable
+CREATE TABLE IF NOT EXISTS "whatsapp_store" (
+  "key" TEXT PRIMARY KEY,
+  "value" TEXT NOT NULL,
+  "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

@@ -67,6 +67,15 @@ Lead Campanha/
 - [x] Docs Swagger em `/api/docs`
 - [x] Hardening: helmet, rate limit, CORS
 - [x] Auto-seed opcional
+- [x] Ajustes (admin): simplificado para apenas “Configurações”
+- [x] Integração WhatsApp Cloud API com fallback de simulação
+- [x] Integração WhatsApp via QR (WhatsApp Web) com Baileys
+	- Geração de QR + status em tempo real via WebSocket
+	- Recebimento/envio de mensagens roteados para Atendimentos
+	- Preferência por sessão QR quando conectada; fallback Cloud API/simulação
+	- Persistência da sessão no PostgreSQL (tabela `whatsapp_store`) para sobreviver a reinícios
+- [x] Correções de deploy Vercel (remoção de rewrites), ErrorBoundary e DebugBar (prod)
+- [x] CI: lint + teste mínimo no frontend antes do build
 
 ### 🚧 **EM PROGRESSO**
 - [ ] Validação de produção completa (fluxos por perfil)
@@ -110,13 +119,12 @@ Lead Campanha/
 - [ ] Controle de limites e permissões
 - [ ] Auditoria e logs
 
-### **Opção 5: WhatsApp Cloud API Real** 📱
-**Objetivo**: Integração real com Meta WhatsApp Business
-- [ ] Integração real com Meta WhatsApp Cloud API
-- [ ] Envio/recebimento de mensagens em tempo real
-- [ ] Status de entrega e leitura
-- [ ] Suporte a mídia (imagens, documentos, áudios)
-- [ ] Webhooks para mensagens recebidas
+### **Opção 5: WhatsApp (Cloud API + QR)** 📱
+**Objetivo**: Robustez e multi-conexão
+- [ ] Entrega de mídia e recibos (read/delivered) completos nas duas integrações
+- [ ] Painel de status da conexão/renovação de token
+- [ ] Persistência de sessão QR com redundância (ex.: storage externo)
+- [ ] Reprocessamento de webhooks em caso de falha
 
 ## 🔄 Fluxo de Desenvolvimento
 
@@ -142,6 +150,9 @@ cd backend; npm run dev
 
 # Prisma
 cd backend; npm run db:generate
+cd backend; npm run db:deploy
+
+# Migrar tabela da sessão WhatsApp (necessário para QR persistente)
 cd backend; npm run db:deploy
 
 # Checks rápidos
@@ -180,11 +191,19 @@ cd backend; npm run check:api
 
 ### Backend
 - Node.js + Express, Prisma, Socket.io, JWT, Helmet, express-rate-limit, Swagger UI
+- WhatsApp Web (Baileys) + sessão persistida no Postgres
 
 ### Deploy
 - Vercel (frontend), Render (backend), Neon Postgres (DB), GitHub Actions (build)
 
 ## 📝 Atualizações Recentes
+
+### [26-27/10/2025]
+- Ajustes (admin) simplificado para apenas “Configurações”
+- Aba WhatsApp com modo “Conectar via QR”: modal com QR e status ao vivo
+- Backend com Baileys e sessão persistida (tabela `whatsapp_store`)
+- Envio de mensagens prioriza QR quando conectado; fallback Cloud API/simulado
+- Correções de deploy e estabilidade (ErrorBoundary, DebugBar, env fallback no frontend)
 
 ### [25/10/2025]
 - Backend hardening (helmet, rate limit, CORS), Swagger em `/api/docs`
@@ -211,5 +230,8 @@ cd backend; npm run check:api
 
 ---
 
-*Última atualização: 25/10/2025*
+### 🔗 Troubleshooting
+Veja problemas comuns e soluções em [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
+
+*Última atualização: 27/10/2025*
 *Desenvolvido por: Pedro Neto*

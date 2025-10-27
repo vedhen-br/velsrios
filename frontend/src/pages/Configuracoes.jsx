@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import axios from 'axios'
 import { useAuth } from '../contexts/AuthContext'
 import { getApiUrl } from '../utils/env'
+import { useSocket } from '../hooks/useSocket'
 
 export default function Configuracoes() {
   const { user, token } = useAuth()
@@ -9,15 +10,15 @@ export default function Configuracoes() {
   const [users, setUsers] = useState([])
   const [tags, setTags] = useState([])
   const [loading, setLoading] = useState(false)
-  
+
   // Modals
   const [showUserModal, setShowUserModal] = useState(false)
   const [showTagModal, setShowTagModal] = useState(false)
   const [selectedUser, setSelectedUser] = useState(null)
-  
+
   // Forms
   const [newTag, setNewTag] = useState({ name: '', color: '#3B82F6' })
-  
+
   // WhatsApp Config
   const [whatsappConfig, setWhatsappConfig] = useState({
     phoneNumberId: '',
@@ -27,7 +28,40 @@ export default function Configuracoes() {
   })
   const [testPhone, setTestPhone] = useState('')
 
+  // WhatsApp Web (QR) state
+  const [qrModalOpen, setQrModalOpen] = useState(false)
+  const [qrImage, setQrImage] = useState('')
+  const [webStatus, setWebStatus] = useState('disconnected') // 'disconnected' | 'qr' | 'connecting' | 'connected'
+
   const API_URL = getApiUrl()
+  const { socket } = useSocket(user?.id)
+
+  // Attach socket listeners for WhatsApp Web
+  useEffect(() => {
+    if (!socket) return
+    const onQr = (payload) => {
+      if (payload?.qrDataUrl) {
+        setQrImage(payload.qrDataUrl)
+        setWebStatus('qr')
+      }
+    }
+    const onStatus = (payload) => {
+      if (payload?.status) {
+        setWebStatus(payload.status)
+        // Close modal on connected
+        if (payload.status === 'connected') {
+          setQrImage('')
+          setQrModalOpen(false)
+        }
+      }
+    }
+    socket.on('whatsapp:web:qr', onQr)
+    socket.on('whatsapp:web:status', onStatus)
+    return () => {
+      socket.off('whatsapp:web:qr', onQr)
+      socket.off('whatsapp:web:status', onStatus)
+    }
+  }, [socket])
 
   useEffect(() => {
     if (activeTab === 'users') fetchUsers()
@@ -98,10 +132,10 @@ export default function Configuracoes() {
       alert('Digite um número de telefone para teste')
       return
     }
-    
+
     setLoading(true)
     try {
-      const res = await axios.post(`${API_URL}/whatsapp/test`, 
+      const res = await axios.post(`${API_URL}/whatsapp/test`,
         { phoneNumber: testPhone },
         { headers: { Authorization: `Bearer ${token}` } }
       )
@@ -111,6 +145,37 @@ export default function Configuracoes() {
       alert('❌ Erro ao enviar mensagem de teste')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const startWhatsAppWeb = async () => {
+    try {
+      setQrModalOpen(true)
+      setWebStatus('connecting')
+      const res = await axios.post(`${API_URL}/whatsapp/web/start`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (res.data?.qrDataUrl) {
+        setQrImage(res.data.qrDataUrl)
+        setWebStatus('qr')
+      }
+    } catch (error) {
+      console.error('Erro ao iniciar WhatsApp Web:', error)
+      alert('Não foi possível iniciar a sessão WhatsApp Web (simulada)')
+      setQrModalOpen(false)
+    }
+  }
+
+  const disconnectWhatsAppWeb = async () => {
+    try {
+      await axios.post(`${API_URL}/whatsapp/web/disconnect`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      setWebStatus('disconnected')
+      setQrImage('')
+    } catch (error) {
+      console.error('Erro ao desconectar WhatsApp Web:', error)
+      alert('Não foi possível desconectar a sessão WhatsApp Web')
     }
   }
 
@@ -146,7 +211,7 @@ export default function Configuracoes() {
 
   const deleteTag = async (tagId) => {
     if (!confirm('Deseja realmente excluir esta tag?')) return
-    
+
     try {
       await axios.delete(`${API_URL}/tags/${tagId}`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -189,41 +254,37 @@ export default function Configuracoes() {
           <div className="border-b flex">
             <button
               onClick={() => setActiveTab('users')}
-              className={`px-6 py-3 font-medium ${
-                activeTab === 'users'
+              className={`px-6 py-3 font-medium ${activeTab === 'users'
                   ? 'border-b-2 border-blue-600 text-blue-600'
                   : 'text-gray-600 hover:text-gray-900'
-              }`}
+                }`}
             >
               👥 Usuários
             </button>
             <button
               onClick={() => setActiveTab('tags')}
-              className={`px-6 py-3 font-medium ${
-                activeTab === 'tags'
+              className={`px-6 py-3 font-medium ${activeTab === 'tags'
                   ? 'border-b-2 border-blue-600 text-blue-600'
                   : 'text-gray-600 hover:text-gray-900'
-              }`}
+                }`}
             >
               🏷️ Tags
             </button>
             <button
               onClick={() => setActiveTab('whatsapp')}
-              className={`px-6 py-3 font-medium ${
-                activeTab === 'whatsapp'
+              className={`px-6 py-3 font-medium ${activeTab === 'whatsapp'
                   ? 'border-b-2 border-blue-600 text-blue-600'
                   : 'text-gray-600 hover:text-gray-900'
-              }`}
+                }`}
             >
               💬 WhatsApp
             </button>
             <button
               onClick={() => setActiveTab('templates')}
-              className={`px-6 py-3 font-medium ${
-                activeTab === 'templates'
+              className={`px-6 py-3 font-medium ${activeTab === 'templates'
                   ? 'border-b-2 border-blue-600 text-blue-600'
                   : 'text-gray-600 hover:text-gray-900'
-              }`}
+                }`}
             >
               📝 Templates
             </button>
@@ -249,18 +310,16 @@ export default function Configuracoes() {
                           <div className="flex-1">
                             <div className="flex items-center gap-3">
                               <h3 className="font-semibold text-gray-900">{u.name}</h3>
-                              <span className={`px-2 py-1 text-xs rounded-full ${
-                                u.role === 'admin'
+                              <span className={`px-2 py-1 text-xs rounded-full ${u.role === 'admin'
                                   ? 'bg-purple-100 text-purple-800'
                                   : 'bg-blue-100 text-blue-800'
-                              }`}>
+                                }`}>
                                 {u.role === 'admin' ? '👑 Admin' : '👤 User'}
                               </span>
-                              <span className={`px-2 py-1 text-xs rounded-full ${
-                                u.available
+                              <span className={`px-2 py-1 text-xs rounded-full ${u.available
                                   ? 'bg-green-100 text-green-800'
                                   : 'bg-gray-100 text-gray-800'
-                              }`}>
+                                }`}>
                                 {u.available ? '✅ Disponível' : '⏸️ Indisponível'}
                               </span>
                             </div>
@@ -269,15 +328,14 @@ export default function Configuracoes() {
                               Limite: {u.maxLeads} leads | Membro desde: {new Date(u.createdAt).toLocaleDateString('pt-BR')}
                             </p>
                           </div>
-                          
+
                           <div className="flex gap-2">
                             <button
                               onClick={() => toggleUserAvailability(u.id, u.available)}
-                              className={`px-3 py-1 rounded text-sm ${
-                                u.available
+                              className={`px-3 py-1 rounded text-sm ${u.available
                                   ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                                   : 'bg-green-600 text-white hover:bg-green-700'
-                              }`}
+                                }`}
                             >
                               {u.available ? 'Desativar' : 'Ativar'}
                             </button>
@@ -292,7 +350,7 @@ export default function Configuracoes() {
                             </button>
                           </div>
                         </div>
-                        
+
                         {/* Estatísticas do Usuário */}
                         <div className="grid grid-cols-4 gap-2 pt-3 border-t">
                           <div className="text-center">
@@ -379,18 +437,17 @@ export default function Configuracoes() {
             {activeTab === 'whatsapp' && (
               <div>
                 <div className="mb-6">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-2">💬 Configurações do WhatsApp Cloud API</h2>
+                  <h2 className="text-lg font-semibold text-gray-900 mb-2">💬 Configurações do WhatsApp</h2>
                   <p className="text-sm text-gray-600">
-                    Configure a integração com a Meta WhatsApp Business API para enviar e receber mensagens reais.
+                    Escolha entre integrar a Cloud API (Meta) ou conectar via QR (estilo WhatsApp Web).
                   </p>
                 </div>
 
                 {/* Status da Configuração */}
-                <div className={`mb-6 p-4 rounded-lg border-2 ${
-                  whatsappConfig.isConfigured 
-                    ? 'bg-green-50 border-green-200' 
+                <div className={`mb-6 p-4 rounded-lg border-2 ${whatsappConfig.isConfigured
+                    ? 'bg-green-50 border-green-200'
                     : 'bg-yellow-50 border-yellow-200'
-                }`}>
+                  }`}>
                   <div className="flex items-center gap-3">
                     {whatsappConfig.isConfigured ? (
                       <>
@@ -418,10 +475,42 @@ export default function Configuracoes() {
                   </div>
                 ) : (
                   <div className="space-y-6">
+                    {/* WhatsApp Web (QR) */}
+                    <div className="bg-white border rounded-lg p-6">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-semibold text-gray-900">📱 Conectar via QR (WhatsApp Web)</h3>
+                        <span className={`text-xs px-2 py-1 rounded-full ${webStatus === 'connected' ? 'bg-green-100 text-green-700' :
+                            webStatus === 'qr' || webStatus === 'connecting' ? 'bg-yellow-100 text-yellow-700' :
+                              'bg-gray-100 text-gray-700'
+                          }`}>
+                          {webStatus === 'connected' ? 'Conectado' : webStatus === 'qr' ? 'Aguardando leitura' : webStatus === 'connecting' ? 'Conectando...' : 'Desconectado'}
+                        </span>
+                      </div>
+
+                      <p className="text-sm text-gray-600 mt-2">
+                        Use seu WhatsApp para escanear o QR e conectar uma sessão (simulada nesta versão).
+                      </p>
+
+                      <div className="mt-4 flex gap-2">
+                        <button
+                          onClick={startWhatsAppWeb}
+                          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                        >
+                          🔗 Conectar via QR
+                        </button>
+                        <button
+                          onClick={disconnectWhatsAppWeb}
+                          className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+                        >
+                          ⏏️ Desconectar
+                        </button>
+                      </div>
+                    </div>
+
                     {/* Formulário de Configuração */}
                     <div className="bg-white border rounded-lg p-6">
                       <h3 className="font-semibold text-gray-900 mb-4">🔑 Credenciais da API</h3>
-                      
+
                       <div className="space-y-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -430,7 +519,7 @@ export default function Configuracoes() {
                           <input
                             type="text"
                             value={whatsappConfig.phoneNumberId}
-                            onChange={(e) => setWhatsappConfig({...whatsappConfig, phoneNumberId: e.target.value})}
+                            onChange={(e) => setWhatsappConfig({ ...whatsappConfig, phoneNumberId: e.target.value })}
                             placeholder="Ex: 123456789012345"
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           />
@@ -446,7 +535,7 @@ export default function Configuracoes() {
                           <input
                             type="password"
                             value={whatsappConfig.accessToken === '***CONFIGURADO***' ? '' : whatsappConfig.accessToken}
-                            onChange={(e) => setWhatsappConfig({...whatsappConfig, accessToken: e.target.value})}
+                            onChange={(e) => setWhatsappConfig({ ...whatsappConfig, accessToken: e.target.value })}
                             placeholder={whatsappConfig.accessToken === '***CONFIGURADO***' ? '***CONFIGURADO***' : 'Cole seu Access Token aqui'}
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           />
@@ -462,7 +551,7 @@ export default function Configuracoes() {
                           <input
                             type="text"
                             value={whatsappConfig.verifyToken}
-                            onChange={(e) => setWhatsappConfig({...whatsappConfig, verifyToken: e.target.value})}
+                            onChange={(e) => setWhatsappConfig({ ...whatsappConfig, verifyToken: e.target.value })}
                             placeholder="lead_campanha_webhook_token_2025"
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           />
@@ -487,7 +576,7 @@ export default function Configuracoes() {
                       <p className="text-sm text-gray-700 mb-4">
                         Configure o webhook no Meta Developer para receber mensagens:
                       </p>
-                      
+
                       <div className="bg-white rounded-lg p-4 mb-4 border">
                         <p className="text-xs text-gray-600 mb-2">Callback URL:</p>
                         <code className="block bg-gray-900 text-green-400 p-3 rounded text-sm overflow-x-auto">
@@ -520,7 +609,7 @@ export default function Configuracoes() {
                       <p className="text-sm text-gray-600 mb-4">
                         Envie uma mensagem de teste para verificar se a integração está funcionando:
                       </p>
-                      
+
                       <div className="flex gap-3">
                         <input
                           type="text"
@@ -543,25 +632,25 @@ export default function Configuracoes() {
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
                       <h3 className="font-semibold text-gray-900 mb-3">📚 Documentação</h3>
                       <div className="space-y-2 text-sm">
-                        <a 
-                          href="https://developers.facebook.com/docs/whatsapp/cloud-api/get-started" 
-                          target="_blank" 
+                        <a
+                          href="https://developers.facebook.com/docs/whatsapp/cloud-api/get-started"
+                          target="_blank"
                           rel="noopener noreferrer"
                           className="block text-blue-600 hover:text-blue-800 hover:underline"
                         >
                           → Guia oficial da WhatsApp Cloud API
                         </a>
-                        <a 
-                          href="https://developers.facebook.com/docs/whatsapp/cloud-api/webhooks" 
-                          target="_blank" 
+                        <a
+                          href="https://developers.facebook.com/docs/whatsapp/cloud-api/webhooks"
+                          target="_blank"
                           rel="noopener noreferrer"
                           className="block text-blue-600 hover:text-blue-800 hover:underline"
                         >
                           → Configuração de Webhooks
                         </a>
-                        <a 
-                          href="https://developers.facebook.com/apps/" 
-                          target="_blank" 
+                        <a
+                          href="https://developers.facebook.com/apps/"
+                          target="_blank"
                           rel="noopener noreferrer"
                           className="block text-blue-600 hover:text-blue-800 hover:underline"
                         >
@@ -577,9 +666,36 @@ export default function Configuracoes() {
             {/* Tab: Templates */}
             {activeTab === 'templates' && (
               <div>
+
+                {/* Modal QR WhatsApp Web */}
+                {qrModalOpen && (
+                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-md">
+                      <div className="flex items-center justify-between mb-2">
+                        <h2 className="text-xl font-bold">Conectar WhatsApp Web</h2>
+                        <button onClick={() => setQrModalOpen(false)} className="text-gray-500 hover:text-gray-700">✖</button>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-4">Abra o WhatsApp no seu celular → Dispositivos conectados → Conectar aparelho e escaneie o QR abaixo.</p>
+                      <div className="flex items-center justify-center border rounded-lg p-4 bg-gray-50">
+                        {qrImage ? (
+                          <img src={qrImage} alt="QR Code" className="w-64 h-64 object-contain" />
+                        ) : (
+                          <div className="text-center">
+                            <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-2"></div>
+                            <p className="text-sm text-gray-600">Gerando QR...</p>
+                          </div>
+                        )}
+                      </div>
+                      <div className="mt-4 flex justify-between items-center">
+                        <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700">{webStatus}</span>
+                        <button onClick={startWhatsAppWeb} className="text-blue-600 hover:text-blue-800 text-sm">🔄 Gerar novo QR</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6 mb-6">
                   <h2 className="text-lg font-semibold text-gray-900 mb-4">🎯 Configurações Globais do Sistema</h2>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Distribuição Automática */}
                     <div className="bg-white rounded-lg p-4 border">
@@ -750,7 +866,7 @@ export default function Configuracoes() {
                   <p className="text-sm text-gray-600 mb-4">
                     Crie templates para respostas rápidas e padronizadas
                   </p>
-                  
+
                   <div className="space-y-3">
                     <div className="border rounded-lg p-4 hover:bg-gray-50">
                       <div className="flex items-start justify-between">
@@ -763,7 +879,7 @@ export default function Configuracoes() {
                         <button className="text-blue-600 hover:text-blue-800 text-sm">Editar</button>
                       </div>
                     </div>
-                    
+
                     <div className="border rounded-lg p-4 hover:bg-gray-50">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
@@ -775,7 +891,7 @@ export default function Configuracoes() {
                         <button className="text-blue-600 hover:text-blue-800 text-sm">Editar</button>
                       </div>
                     </div>
-                    
+
                     <div className="border rounded-lg p-4 hover:bg-gray-50">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
@@ -788,7 +904,7 @@ export default function Configuracoes() {
                       </div>
                     </div>
                   </div>
-                  
+
                   <button className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                     ➕ Novo Template
                   </button>
@@ -804,7 +920,7 @@ export default function Configuracoes() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h2 className="text-xl font-bold mb-4">✏️ Editar Usuário</h2>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
@@ -815,7 +931,7 @@ export default function Configuracoes() {
                   className="w-full px-3 py-2 border rounded-lg bg-gray-50"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                 <input
@@ -825,7 +941,7 @@ export default function Configuracoes() {
                   className="w-full px-3 py-2 border rounded-lg bg-gray-50"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Limite de Leads Simultâneos
@@ -842,7 +958,7 @@ export default function Configuracoes() {
                   Número máximo de leads ativos que este usuário pode gerenciar
                 </p>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Função</label>
                 <select
@@ -857,10 +973,10 @@ export default function Configuracoes() {
                   Admins têm acesso total ao sistema
                 </p>
               </div>
-              
+
               <div className="border-t pt-4">
                 <h3 className="font-semibold text-gray-900 mb-3">⚙️ Permissões</h3>
-                
+
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <input
@@ -874,7 +990,7 @@ export default function Configuracoes() {
                       ✅ Disponível para receber leads automaticamente
                     </label>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -886,7 +1002,7 @@ export default function Configuracoes() {
                       ➕ Pode criar leads manualmente no CRM
                     </label>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -898,7 +1014,7 @@ export default function Configuracoes() {
                       ✏️ Pode editar seus próprios leads
                     </label>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -910,7 +1026,7 @@ export default function Configuracoes() {
                       🗑️ Pode excluir seus próprios leads
                     </label>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -921,7 +1037,7 @@ export default function Configuracoes() {
                       📥 Pode exportar dados em CSV
                     </label>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -935,10 +1051,10 @@ export default function Configuracoes() {
                   </div>
                 </div>
               </div>
-              
+
               <div className="border-t pt-4">
                 <h3 className="font-semibold text-gray-900 mb-3">🔔 Notificações</h3>
-                
+
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <input
@@ -951,7 +1067,7 @@ export default function Configuracoes() {
                       Notificar quando receber novo lead
                     </label>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -963,7 +1079,7 @@ export default function Configuracoes() {
                       Notificar quando receber nova mensagem
                     </label>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -977,10 +1093,10 @@ export default function Configuracoes() {
                   </div>
                 </div>
               </div>
-              
+
               <div className="border-t pt-4">
                 <h3 className="font-semibold text-gray-900 mb-3">⏰ Horário de Trabalho</h3>
-                
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs text-gray-600 mb-1">Início</label>
@@ -1004,7 +1120,7 @@ export default function Configuracoes() {
                 </p>
               </div>
             </div>
-            
+
             <div className="flex gap-2 mt-6">
               <button
                 onClick={() => {
@@ -1035,7 +1151,7 @@ export default function Configuracoes() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h2 className="text-xl font-bold mb-4">🏷️ Nova Tag</h2>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Nome *</label>
@@ -1047,7 +1163,7 @@ export default function Configuracoes() {
                   placeholder="VIP, Urgente, Follow-up..."
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Cor</label>
                 <div className="flex gap-2">
@@ -1065,7 +1181,7 @@ export default function Configuracoes() {
                   />
                 </div>
               </div>
-              
+
               <div className="border rounded-lg p-3 bg-gray-50">
                 <p className="text-sm text-gray-600 mb-2">Preview:</p>
                 <span
@@ -1076,7 +1192,7 @@ export default function Configuracoes() {
                 </span>
               </div>
             </div>
-            
+
             <div className="flex gap-2 mt-6">
               <button
                 onClick={() => {

@@ -51,11 +51,7 @@ export default function Layout({ children, currentPage }) {
       label: 'Ajustes',
       icon: '⚙️',
       submenu: [
-        { id: 'configuracoes', label: 'Configurações' },
-        { id: 'conta', label: 'Conta' },
-        { id: 'equipes', label: 'Equipes' },
-        { id: 'templates', label: 'Templates' },
-        { id: 'usuarios', label: 'Usuários' }
+        { id: 'configuracoes', label: 'Configurações' }
       ]
     })
   }

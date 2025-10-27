@@ -37,7 +37,7 @@ model Lead {
   origin          String    @default("whatsapp")
   priority        String    @default("low")
   stage           String    @default("new")
-  assignedTo      String?  
+  assignedTo      String?
   assignedUser    User?     @relation(fields: [assignedTo], references: [id])
   status          String    @default("open")
   interest        String?
@@ -105,4 +105,13 @@ model Tag {
   createdAt DateTime @default(now())
 
   @@map("tags")
+}
+
+// Armazena sessão/credenciais/keys do WhatsApp (Baileys) no Postgres
+model WhatsAppStore {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+
+  @@map("whatsapp_store")
 }

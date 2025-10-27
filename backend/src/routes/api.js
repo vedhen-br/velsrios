@@ -5,6 +5,7 @@ const { generateToken, authMiddleware, adminOnly } = require('../auth/jwt')
 const Distributor = require('../services/distributor')
 const aiClassifier = require('../services/aiClassifier')
 const whatsappService = require('../services/whatsapp.service')
+const whatsappWebService = require('../services/whatsappWeb.service')
 
 const router = express.Router()
 const prisma = new PrismaClient()
@@ -281,13 +282,28 @@ router.post('/leads/:id/messages', async (req, res) => {
 
   const io = req.app.get('io')
 
-  // Enviar via WhatsApp Cloud API (se configurado) ou simular
-  const result = await whatsappService.sendMessage(
-    lead.phone,
-    text,
-    io,
-    parseInt(req.params.id)
-  )
+  // Preferir sessão QR (Baileys) se conectada; senão Cloud API; senão simulação
+  let result
+  try {
+    if (whatsappWebService.isConnected && whatsappWebService.isConnected()) {
+      result = await whatsappWebService.sendMessage(
+        lead.phone,
+        text,
+        io,
+        parseInt(req.params.id)
+      )
+    } else {
+      result = await whatsappService.sendMessage(
+        lead.phone,
+        text,
+        io,
+        parseInt(req.params.id)
+      )
+    }
+  } catch (e) {
+    console.error('Erro no envio de mensagem:', e)
+    return res.status(500).json({ error: 'Erro ao enviar mensagem' })
+  }
 
   if (result.success) {
     // Log de atividade
@@ -755,6 +771,42 @@ router.post('/whatsapp/test', adminOnly, async (req, res) => {
     }
   } catch (error) {
     res.status(500).json({ error: error.message })
+  }
+})
+
+// ==================== WHATSAPP WEB (QR) - SIMULATED SESSION ====================
+
+// Start WhatsApp Web simulated session (admin only)
+router.post('/whatsapp/web/start', adminOnly, async (req, res) => {
+  try {
+    const io = req.app.get('io')
+    const result = await whatsappWebService.startSession(io)
+    res.json(result)
+  } catch (error) {
+    console.error('Erro ao iniciar sessão WhatsApp Web:', error)
+    res.status(500).json({ error: 'Erro ao iniciar sessão WhatsApp Web' })
+  }
+})
+
+// Get status of WhatsApp Web simulated session (admin only)
+router.get('/whatsapp/web/status', adminOnly, async (req, res) => {
+  try {
+    const status = whatsappWebService.getStatus()
+    res.json(status)
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao consultar status WhatsApp Web' })
+  }
+})
+
+// Disconnect WhatsApp Web simulated session (admin only)
+router.post('/whatsapp/web/disconnect', adminOnly, async (req, res) => {
+  try {
+    whatsappWebService.disconnect()
+    const io = req.app.get('io')
+    if (io) io.emit('whatsapp:web:status', { status: 'disconnected' })
+    res.json({ success: true })
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao desconectar WhatsApp Web' })
   }
 })
 
