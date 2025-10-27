@@ -4,6 +4,12 @@ import react from '@vitejs/plugin-react'
 // Vite config ajustado para funcionar bem em Dev Containers, Codespaces e Windows
 export default defineConfig({
   plugins: [react()],
+  define: {
+    __APP_BUILD_INFO__: JSON.stringify({
+      commit: process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || '',
+      date: new Date().toISOString()
+    })
+  },
   test: {
     globals: true,
     environment: 'node',

@@ -123,6 +123,39 @@ Após salvar, faça Redeploy (as envs só entram na build).
 
 ---
 
+## 🧩 Cache no Vercel (evitar UI antiga após deploy)
+
+Para que cada deploy apareça imediatamente para todos os usuários sem precisar dar hard refresh:
+
+- Já incluímos `vercel.json` na raiz com headers de cache:
+  - `Cache-Control: no-cache, no-store, must-revalidate` para `/` e `/index.html` (o HTML nunca é cacheado).
+  - `Cache-Control: public, max-age=31536000, immutable` para `/assets/*` (arquivos com hash gerados pelo Vite, seguros para cache longo).
+- O Vite já gera nomes com hash (ex.: `/assets/app.abc123.js`), então quando você faz um novo deploy, o HTML aponta para novos arquivos e o usuário recebe a versão nova automaticamente.
+
+Boas práticas adicionais:
+
+1) Após alterar variáveis `VITE_*`, sempre faça "Redeploy" (elas entram na build).
+2) Se algo parecer desatualizado, use a ação "Redeploy > Clear Build Cache" na Vercel para forçar build do zero.
+3) Evite service workers agressivos (PWA) se não forem necessários. Este projeto não registra SW por padrão.
+
+### Verificar a versão em produção (debug rápido)
+
+Ativamos um mini painel de diagnóstico. Abra qualquer página com `?debug=1` no final da URL, por exemplo:
+
+```
+https://velsrios.vercel.app/#atendimentos?debug=1
+```
+
+Você verá no canto inferior esquerdo:
+- `env` (onde está rodando)
+- `apiUrl` e `wsUrl` resolvidos
+- `commit` (primeiros 7 chars do SHA do deploy)
+- `builtAt` (timestamp da build)
+
+Isso ajuda a confirmar rapidamente se a versão em produção bate com o commit esperado.
+
+---
+
 ## 🔐 Ajustes Recomendados para Render (Backend)
 
 No painel do Render (onde o backend está hospedado), defina as seguintes variáveis de ambiente para permitir que o frontend implantado (Vercel) se conecte ao backend via CORS / socket.io:
@@ -135,18 +168,18 @@ ALLOW_ALL_ORIGINS=false
 ```
 
 Explicação:
-- `FRONTEND_URL` é usado internamente para gerar links e referência de callback (webhook).  
-- `EXTRA_ALLOWED_ORIGINS` aceita uma lista separada por vírgula de domínios que o backend deve aceitar (CORS/socket.io).  
+- `FRONTEND_URL` é usado internamente para gerar links e referência de callback (webhook).
+- `EXTRA_ALLOWED_ORIGINS` aceita uma lista separada por vírgula de domínios que o backend deve aceitar (CORS/socket.io).
 - `ALLOW_ALL_ORIGINS=true` permite qualquer origem (útil só para debug rápido; remova em produção).
 
 Após salvar as variáveis no Render, reinicie o serviço para que as novas configurações entrem em vigor.
 
 ## ✅ Checklist final — produção
 
-- [ ] No Render (backend): setar `POSTGRES_PRISMA_URL`, `POSTGRES_URL_NON_POOLING`, `JWT_SECRET`, `FRONTEND_URL`, `EXTRA_ALLOWED_ORIGINS` e reiniciar.  
-- [ ] No Vercel (frontend): setar `VITE_API_URL` e `VITE_WS_URL` apontando para o backend (`https://lead-campanha-api.onrender.com`) e redeploy.  
-- [ ] No Neon: confirmar credenciais e que o `POSTGRES_PRISMA_URL` fornecido ao Render consegue migrar/seed.  
-- [ ] Testar: Login (admin), abrir aba WhatsApp → clicar `Conectar via QR` e observar geração do QR no modal.  
+- [ ] No Render (backend): setar `POSTGRES_PRISMA_URL`, `POSTGRES_URL_NON_POOLING`, `JWT_SECRET`, `FRONTEND_URL`, `EXTRA_ALLOWED_ORIGINS` e reiniciar.
+- [ ] No Vercel (frontend): setar `VITE_API_URL` e `VITE_WS_URL` apontando para o backend (`https://lead-campanha-api.onrender.com`) e redeploy.
+- [ ] No Neon: confirmar credenciais e que o `POSTGRES_PRISMA_URL` fornecido ao Render consegue migrar/seed.
+- [ ] Testar: Login (admin), abrir aba WhatsApp → clicar `Conectar via QR` e observar geração do QR no modal.
 
 Se quiser, eu posso preparar um pequeno arquivo `scripts/deploy-envs.md` com comandos e o payload exato para usar nas CLIs (Vercel/Render) — me diga se prefere isso.
 

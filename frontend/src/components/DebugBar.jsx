@@ -18,6 +18,12 @@ export default function DebugBar() {
       <div>apiUrl: {getApiUrl()}</div>
       <div>wsUrl: {getWebSocketUrl()}</div>
       <div>host: {typeof window !== 'undefined' ? window.location.hostname : 'n/a'}</div>
+      {typeof __APP_BUILD_INFO__ !== 'undefined' && (
+        <div style={{ marginTop: 4, opacity: 0.9 }}>
+          <div>commit: {__APP_BUILD_INFO__.commit?.slice(0, 7) || 'n/a'}</div>
+          <div>builtAt: {__APP_BUILD_INFO__.date}</div>
+        </div>
+      )}
     </div>
   );
 }
