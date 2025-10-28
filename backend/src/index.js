@@ -183,5 +183,17 @@ httpServer.listen(port, '0.0.0.0', async () => {
     console.log(`\n🌐 Codespaces URLs:`)
     console.log(`   Backend: https://${process.env.CODESPACE_NAME}-${port}.${process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}`)
   }
+
+  // Opcional: iniciar sessão WhatsApp Web automaticamente, se habilitado
+  try {
+    const autoStart = String(process.env.WHATSAPP_WEB_AUTO_START || '').toLowerCase() === 'true'
+    if (autoStart) {
+      const whatsappWebService = require('./services/whatsappWeb.service')
+      console.log('🔄 WHATSAPP_WEB_AUTO_START=true: iniciando sessão WhatsApp Web...')
+      whatsappWebService.startSession(io)
+    }
+  } catch (e) {
+    console.warn('⚠️  Falha ao auto-iniciar WhatsApp Web:', e?.message || e)
+  }
 })
 
