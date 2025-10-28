@@ -25,6 +25,9 @@ export default function Atendimentos() {
   const [transferUserId, setTransferUserId] = useState('')
   // Removido: criação manual de lead neste fluxo (apenas leads do WhatsApp)
   const [stats, setStats] = useState(null)
+  const [showNewChat, setShowNewChat] = useState(false)
+  const [newPhone, setNewPhone] = useState('')
+  const [initialMsg, setInitialMsg] = useState('')
   const messagesEndRef = useRef(null)
   const messagesContainerRef = useRef(null)
   const atBottomRef = useRef(true)
@@ -302,8 +305,10 @@ export default function Atendimentos() {
     }
   }
 
+  const normalizePhone = (p) => (p || '').replace(/\D/g, '')
+
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-gray-50">
+    <div className="flex flex-col h-full min-h-0 overflow-hidden bg-gray-50">
       {/* Cabeçalho compacto apenas com título e status */}
       <div className="bg-white border-b border-gray-200 px-4 py-2">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
@@ -330,7 +335,7 @@ export default function Atendimentos() {
                 </div>
               )}
             </div>
-            <div className="mt-3 flex gap-2">
+            <div className="mt-3 flex gap-2 items-center">
               <button
                 onClick={() => setFilter('all')}
                 className={`px-3 py-1 rounded text-sm ${filter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
@@ -350,6 +355,13 @@ export default function Atendimentos() {
                 Meus
               </button>
               <div className="flex-1" />
+              <button
+                onClick={() => setShowNewChat(true)}
+                className="px-3 py-1.5 rounded text-sm bg-green-600 text-white hover:bg-green-700"
+                title="Iniciar nova conversa"
+              >
+                + Nova conversa
+              </button>
             </div>
           </div>
 
@@ -733,7 +745,67 @@ export default function Atendimentos() {
         )}
       </div>
 
-      {/* Removido: modal de criação de lead manual */}
+      {/* Modal: Nova conversa (criar lead WhatsApp manualmente) */}
+      {showNewChat && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-semibold text-lg">Iniciar nova conversa</h3>
+              <button onClick={() => setShowNewChat(false)} className="text-gray-500 hover:text-gray-700">✕</button>
+            </div>
+            <p className="text-sm text-gray-600 mb-3">Informe o número com DDI/DDD. Ex.: 5511999999999</p>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-gray-500">Telefone</label>
+                <input
+                  value={newPhone}
+                  onChange={e => setNewPhone(e.target.value)}
+                  placeholder="5511999999999"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">Mensagem inicial (opcional)</label>
+                <input
+                  value={initialMsg}
+                  onChange={e => setInitialMsg(e.target.value)}
+                  placeholder="Olá! Posso te ajudar?"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <button onClick={() => setShowNewChat(false)} className="px-4 py-2 text-sm border rounded">Cancelar</button>
+                <button
+                  onClick={async () => {
+                    const phone = normalizePhone(newPhone)
+                    if (!phone) { alert('Informe um telefone válido'); return }
+                    try {
+                      const res = await axios.post(`${API}/leads`, { phone, origin: 'whatsapp' }, { headers: { Authorization: `Bearer ${token}` } })
+                      const lead = res.data
+                      setShowNewChat(false)
+                      setNewPhone('')
+                      setInitialMsg('')
+                      await fetchLeads()
+                      setSelectedLeadId(lead.id)
+                      if (initialMsg.trim()) {
+                        await axios.post(`${API}/leads/${lead.id}/messages`, { text: initialMsg.trim() }, { headers: { Authorization: `Bearer ${token}` } })
+                        await fetchLeadDetails(lead.id)
+                      } else {
+                        await fetchLeadDetails(lead.id)
+                      }
+                    } catch (e) {
+                      alert('Não foi possível iniciar a conversa')
+                    }
+                  }}
+                  className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Iniciar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

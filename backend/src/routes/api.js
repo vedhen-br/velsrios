@@ -284,7 +284,7 @@ router.get('/leads/:id', async (req, res) => {
 // Create lead (admin ou webhook)
 // Create lead (admin ou usuário comum)
 router.post('/leads', async (req, res) => {
-  const { name, phone, email, interest } = req.body
+  const { name, phone, email, interest, origin } = req.body
   if (!phone) return res.status(400).json({ error: 'phone obrigatório' })
   // Admin pode criar lead manual para qualquer usuário ou para si mesmo
   let assignedTo = req.user.id
@@ -297,7 +297,7 @@ router.post('/leads', async (req, res) => {
       phone,
       email,
       interest,
-      origin: 'manual',
+      origin: origin || 'manual',
       stage: 'new',
       status: 'open',
       assignedTo

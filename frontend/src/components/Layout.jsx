@@ -152,7 +152,7 @@ export default function Layout({ children, currentPage }) {
       </header>
 
       {/* Content */}
-      <main className="flex-1 overflow-y-auto">
+      <main className={`flex-1 ${currentPage === 'atendimentos' ? 'min-h-0 overflow-hidden' : 'overflow-y-auto'}`}>
         {children}
       </main>
     </div>
