@@ -300,7 +300,15 @@ class WhatsAppService {
 
         // Log/notify se houver responsável
         if (assigned) {
-          await prisma.leadLog.create({ data: { leadId: lead.id, userId: assigned.id, action: 'Novo lead do WhatsApp (Cloud API)' } })
+          // Prisma schema requires a `message` field on leadLog; provide a sensible default
+          await prisma.leadLog.create({
+            data: {
+              leadId: lead.id,
+              userId: assigned.id,
+              action: 'Novo lead do WhatsApp (Cloud API)',
+              message: content || `Lead criado via WhatsApp por ${contactName}`
+            }
+          })
           if (io) io.emit('lead:new', { userId: assigned.id, lead })
         }
 
