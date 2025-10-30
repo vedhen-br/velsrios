@@ -23,8 +23,7 @@ const {
   initAuthCreds,
   BufferJSON,
   fetchLatestBaileysVersion,
-  DisconnectReason,
-  useMultiFileAuthState
+  DisconnectReason
 } = require('@whiskeysockets/baileys')
 
 const prisma = new PrismaClient()
@@ -97,7 +96,7 @@ class WhatsAppWebService {
         auth: state,
         logger: pino({ level: 'silent' }), // Silent for Baileys internal logs
         printQRInTerminal: false,
-        browser: ['Lead Campanha', 'Chrome', '120.0.0'],
+        browser: ['Lead Campanha', 'Chrome', process.env.WHATSAPP_BROWSER_VERSION || '121.0.0'],
         defaultQueryTimeoutMs: undefined,
         keepAliveIntervalMs: 30000,
         connectTimeoutMs: 60000,
@@ -256,7 +255,8 @@ class WhatsAppWebService {
     this.isReconnecting = true
     this.reconnectAttempts++
     
-    const delay = Math.min(this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1), 60000)
+    // Exponential backoff: 3s, 6s, 12s, 24s, 48s, 60s (capped)
+    const delay = Math.min(this.reconnectDelay * (1 << (this.reconnectAttempts - 1)), 60000)
     
     this.logger.info(`🔄 Tentativa de reconexão ${this.reconnectAttempts}/${this.maxReconnectAttempts} em ${delay}ms...`)
     
@@ -426,7 +426,7 @@ class WhatsAppWebService {
           data: { 
             leadId: lead.id, 
             userId: assigned.id, 
-            action: 'Novo lead do WhatsApp (QR)',
+            action: 'Novo lead do WhatsApp Web',
             message: `Lead criado automaticamente via WhatsApp Web`
           } 
         })
@@ -599,7 +599,8 @@ class WhatsAppWebService {
                   update: { value },
                   create: { key, value }
                 }).catch(error => {
-                  this.logger.error(`❌ Erro ao salvar key ${key}:`, error)
+                  this.logger.error(`❌ Erro ao salvar key ${key}:`, error.message || error)
+                  // Return null to track failures but continue with other operations
                   return null
                 })
               )
@@ -608,10 +609,17 @@ class WhatsAppWebService {
           if (ops.length) {
             const results = await Promise.all(ops)
             const successCount = results.filter(r => r !== null).length
-            this.logger.debug(`💾 ${successCount}/${ops.length} keys salvas no banco`)
+            const failedCount = results.length - successCount
+            
+            if (failedCount > 0) {
+              this.logger.warn(`⚠️ ${failedCount}/${ops.length} keys falharam ao salvar no banco`)
+            } else {
+              this.logger.debug(`💾 ${successCount} keys salvas no banco com sucesso`)
+            }
           }
         } catch (error) {
-          this.logger.error('❌ Erro ao salvar keys:', error)
+          this.logger.error('❌ Erro crítico ao salvar keys:', error)
+          // Don't throw - allow session to continue even if some keys fail to save
         }
       }
 
@@ -661,13 +669,17 @@ class WhatsAppWebService {
       
       this.logger.info(`${logPrefix} Enviando mensagem para ${normalized}...`)
       
-      // Send message with timeout protection
+      // Send message with timeout protection (prevents hanging operations)
+      let timeoutId
       const sendPromise = this.sock.sendMessage(jid, { text: message })
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Send timeout')), 30000)
-      )
+      const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error('Send timeout')), 30000)
+      })
       
       const result = await Promise.race([sendPromise, timeoutPromise])
+      
+      // Clear timeout to prevent memory leak
+      if (timeoutId) clearTimeout(timeoutId)
       
       this.logger.info(`${logPrefix} ✅ Mensagem enviada com sucesso`)
 
