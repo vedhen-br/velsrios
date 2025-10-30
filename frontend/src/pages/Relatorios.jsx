@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
 import { useAuth } from '../contexts/AuthContext'
+import { getApiUrl } from '../utils/env'
 
 export default function Relatorios() {
   const { token } = useAuth()
@@ -12,7 +13,7 @@ export default function Relatorios() {
     endDate: ''
   })
 
-  const API_URL = 'http://localhost:4000/api'
+  const API_URL = getApiUrl()
 
   useEffect(() => {
     fetchOverview()
@@ -176,7 +177,7 @@ export default function Relatorios() {
             {analytics && analytics.conversionRates && (
               <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-4">🔄 Funil de Conversão</h2>
-                
+
                 <div className="space-y-4">
                   {/* Novo */}
                   <div>
@@ -203,7 +204,7 @@ export default function Relatorios() {
                     <div className="w-full bg-gray-200 rounded-full h-8">
                       <div
                         className="bg-blue-500 h-8 rounded-full flex items-center justify-end pr-3 text-white text-sm font-medium"
-                        style={{ 
+                        style={{
                           width: `${getConversionRate(analytics.conversionRates.contacted, analytics.conversionRates.new)}%`,
                           minWidth: '60px'
                         }}
@@ -222,7 +223,7 @@ export default function Relatorios() {
                     <div className="w-full bg-gray-200 rounded-full h-8">
                       <div
                         className="bg-yellow-500 h-8 rounded-full flex items-center justify-end pr-3 text-white text-sm font-medium"
-                        style={{ 
+                        style={{
                           width: `${getConversionRate(analytics.conversionRates.qualified, analytics.conversionRates.new)}%`,
                           minWidth: '60px'
                         }}
@@ -241,7 +242,7 @@ export default function Relatorios() {
                     <div className="w-full bg-gray-200 rounded-full h-8">
                       <div
                         className="bg-orange-500 h-8 rounded-full flex items-center justify-end pr-3 text-white text-sm font-medium"
-                        style={{ 
+                        style={{
                           width: `${getConversionRate(analytics.conversionRates.proposal, analytics.conversionRates.new)}%`,
                           minWidth: '60px'
                         }}
@@ -260,7 +261,7 @@ export default function Relatorios() {
                     <div className="w-full bg-gray-200 rounded-full h-8">
                       <div
                         className="bg-purple-500 h-8 rounded-full flex items-center justify-end pr-3 text-white text-sm font-medium"
-                        style={{ 
+                        style={{
                           width: `${getConversionRate(analytics.conversionRates.negotiation, analytics.conversionRates.new)}%`,
                           minWidth: '60px'
                         }}
@@ -279,7 +280,7 @@ export default function Relatorios() {
                     <div className="w-full bg-gray-200 rounded-full h-8">
                       <div
                         className="bg-green-600 h-8 rounded-full flex items-center justify-end pr-3 text-white text-sm font-medium"
-                        style={{ 
+                        style={{
                           width: `${getConversionRate(analytics.conversionRates.closed, analytics.conversionRates.new)}%`,
                           minWidth: '60px'
                         }}
@@ -349,7 +350,7 @@ export default function Relatorios() {
                           <div className="w-full bg-gray-200 rounded-full h-6">
                             <div
                               className="bg-blue-600 h-6 rounded-full flex items-center justify-end pr-2 text-white text-xs font-medium"
-                              style={{ 
+                              style={{
                                 width: `${(count / analytics.totalLeads) * 100}%`,
                                 minWidth: '40px'
                               }}

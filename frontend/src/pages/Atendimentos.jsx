@@ -102,20 +102,25 @@ export default function Atendimentos() {
 
   async function fetchLeads() {
     try {
-      const params = {}
-      if (filter === 'new') params.stage = 'new'
-      if (filter === 'mine' && user.role !== 'admin') params.assignedTo = user.id
-      // Apenas leads de origem WhatsApp
-      params.origin = 'whatsapp'
-      // Mostrar apenas contatos que iniciaram via WhatsApp Web (QR)
-      params.inboundOnly = true
-      params.channel = 'qr'
+      const baseParams = {}
+      if (filter === 'new') baseParams.stage = 'new'
+      if (filter === 'mine' && user.role !== 'admin') baseParams.assignedTo = user.id
+      baseParams.origin = 'whatsapp'
 
-      const res = await axios.get(`${API}/leads/atendimento`, {
-        headers: { Authorization: `Bearer ${token}` },
-        params
-      })
-      setLeads(res.data || [])
+      // Preferência padrão: mostrar apenas inbound via QR, mas se vier vazio, faz fallback e mostra tudo
+      const strictParams = { ...baseParams, inboundOnly: true, channel: 'qr' }
+
+      const commonCfg = { headers: { Authorization: `Bearer ${token}` } }
+      let res = await axios.get(`${API}/leads/atendimento`, { ...commonCfg, params: strictParams })
+      let data = res.data || []
+
+      // Fallback: se nenhum lead encontrado, buscar sem os filtros estritos
+      if (!Array.isArray(data) || data.length === 0) {
+        res = await axios.get(`${API}/leads/atendimento`, { ...commonCfg, params: baseParams })
+        data = res.data || []
+      }
+
+      setLeads(data)
     } catch (e) {
       console.error('Erro ao carregar leads:', e)
       setLeads([])
