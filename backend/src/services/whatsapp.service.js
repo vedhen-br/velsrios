@@ -64,8 +64,9 @@ class WhatsAppService {
   async sendMessage(to, message, io = null, leadId = null) {
     try {
       if (!this.config?.phoneNumberId || !this.config?.accessToken) {
-        console.warn('⚠️  WhatsApp não configurado, simulando envio...');
-        return this.simulateSend(to, message, io, leadId);
+        console.warn('⚠️  WhatsApp não configurado — não será enviado (simulação desativada para produção).');
+        // Não criar mensagem "sent" falsa. Informe que é simulado e permita fallback (ex.: QR) no caller
+        return { success: false, simulated: true, error: 'WhatsApp Cloud API não configurado' }
       }
 
       const url = `${this.baseURL}/${this.config.phoneNumberId}/messages`;
@@ -114,10 +115,10 @@ class WhatsAppService {
       return { success: true, messageId, message: savedMessage };
 
     } catch (error) {
-      console.error('❌ Erro ao enviar mensagem WhatsApp:', error.response?.data || error.message);
-
-      // Em caso de erro, simula envio
-      return this.simulateSend(to, message, io, leadId);
+      const apiErr = error.response?.data?.error?.message || error.response?.data || error.message
+      console.error('❌ Erro ao enviar mensagem WhatsApp (Cloud):', apiErr);
+      // Não simular sucesso aqui; devolve falha para permitir fallback para QR quando configurado
+      return { success: false, error: apiErr }
     }
   }
 
@@ -422,25 +423,10 @@ class WhatsAppService {
    * Simula envio de mensagem (fallback quando WhatsApp não está configurado)
    */
   async simulateSend(to, message, io, leadId) {
-    const savedMessage = await prisma.message.create({
-      data: {
-        leadId,
-        text: message,
-        direction: 'outgoing',
-        sender: 'agent',
-        status: 'sent'
-      }
-    });
-
-    if (io && leadId) {
-      io.emit('message:new', {
-        leadId,
-        message: savedMessage
-      });
-    }
-
-    console.log(`📤 Mensagem simulada para ${to}: ${message}`);
-    return { success: true, simulated: true, message: savedMessage };
+    // Em produção, evitar criar mensagens como "sent" quando for apenas simulação.
+    // Retorna um marcador de simulação para que a rota tente fallback para QR (se disponível)
+    console.log(`📤 [SIMULAÇÃO] Mensagem não enviada (Cloud não configurado): ${to}`)
+    return { success: false, simulated: true, error: 'Simulação de envio (Cloud não configurado)' }
   }
 
   /**
