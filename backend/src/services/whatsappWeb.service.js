@@ -39,6 +39,7 @@ class WhatsAppWebService {
     this.maxReconnectAttempts = 10
     this.reconnectDelay = 3000 // Initial delay in ms
     this.isReconnecting = false
+    this.sendMessageTimeout = 30000 // 30 seconds timeout for send operations
     
     // Logger configuration - works with or without pino-pretty
     const logLevel = process.env.LOG_LEVEL || 'info'
@@ -256,6 +257,7 @@ class WhatsAppWebService {
     this.reconnectAttempts++
     
     // Exponential backoff: 3s, 6s, 12s, 24s, 48s, 60s (capped)
+    // Using bitwise left shift (1 << n) is equivalent to Math.pow(2, n) but more efficient
     const delay = Math.min(this.reconnectDelay * (1 << (this.reconnectAttempts - 1)), 60000)
     
     this.logger.info(`🔄 Tentativa de reconexão ${this.reconnectAttempts}/${this.maxReconnectAttempts} em ${delay}ms...`)
@@ -673,7 +675,7 @@ class WhatsAppWebService {
       let timeoutId
       const sendPromise = this.sock.sendMessage(jid, { text: message })
       const timeoutPromise = new Promise((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error('Send timeout')), 30000)
+        timeoutId = setTimeout(() => reject(new Error('Send timeout')), this.sendMessageTimeout)
       })
       
       const result = await Promise.race([sendPromise, timeoutPromise])
