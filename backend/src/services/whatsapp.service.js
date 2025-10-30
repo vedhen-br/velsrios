@@ -10,6 +10,19 @@ class WhatsAppService {
     this.loadConfig();
   }
 
+  // Normaliza telefone para E.164 simples usando código do país padrão (ex: Brasil 55)
+  normalizePhone(raw) {
+    try {
+      const defCC = process.env.DEFAULT_COUNTRY_CODE || '55'
+      let digits = String(raw || '').replace(/\D/g, '')
+      if (digits.startsWith(defCC)) return digits
+      if (digits.length >= 12) return digits
+      return defCC + digits
+    } catch {
+      return String(raw || '').replace(/\D/g, '')
+    }
+  }
+
   async loadConfig() {
     try {
       // Busca configurações do WhatsApp do banco (será salvo pelo admin)
@@ -56,13 +69,14 @@ class WhatsAppService {
       }
 
       const url = `${this.baseURL}/${this.config.phoneNumberId}/messages`;
+      const normalized = this.normalizePhone(to)
 
       const response = await axios.post(
         url,
         {
           messaging_product: 'whatsapp',
           recipient_type: 'individual',
-          to: to.replace(/\D/g, ''), // Remove formatação
+          to: normalized,
           type: 'text',
           text: { body: message }
         },
@@ -118,11 +132,12 @@ class WhatsAppService {
       }
 
       const url = `${this.baseURL}/${this.config.phoneNumberId}/messages`;
+      const normalized = this.normalizePhone(to)
 
       const payload = {
         messaging_product: 'whatsapp',
         recipient_type: 'individual',
-        to: to.replace(/\D/g, ''),
+        to: normalized,
         type: type // 'image', 'document', 'audio', 'video'
       };
 
@@ -204,7 +219,12 @@ class WhatsAppService {
    */
   async processIncomingMessage(message, contact, io) {
     try {
-      const phoneNumber = message.from;
+      const phoneNumber = this.normalizePhone(message.from);
+      // Sanitiza telefone: evita criar leads com números não plausíveis
+      if (!phoneNumber || phoneNumber.length < 10 || phoneNumber.length > 15) {
+        console.warn('Ignorando webhook com telefone inválido:', message.from)
+        return { success: false, ignored: true }
+      }
       const messageId = message.id;
       const timestamp = new Date(parseInt(message.timestamp) * 1000);
 
@@ -215,6 +235,23 @@ class WhatsAppService {
       switch (message.type) {
         case 'text':
           content = message.text.body;
+          break;
+        case 'interactive':
+          // Botões e list replies da Cloud API
+          try {
+            const interactive = message.interactive || {}
+            if (interactive.type === 'button_reply') {
+              content = interactive.button_reply?.title || interactive.button_reply?.id || '[INTERACTIVE_BUTTON]'
+            } else if (interactive.type === 'list_reply') {
+              content = interactive.list_reply?.title || interactive.list_reply?.id || '[INTERACTIVE_LIST]'
+            } else if (interactive.type === 'product_list_preview') {
+              content = '[PRODUTO]'
+            } else {
+              content = '[INTERACTIVE]'
+            }
+          } catch (e) {
+            content = '[INTERACTIVE]'
+          }
           break;
         case 'image':
           content = message.image.caption || '[IMAGEM]';
@@ -240,71 +277,31 @@ class WhatsAppService {
       }
 
       // Busca ou cria lead
-      let lead = await prisma.lead.findFirst({
-        where: { phone: phoneNumber }
-      });
+      let lead = await prisma.lead.findFirst({ where: { phone: phoneNumber } });
 
       const contactName = contact?.profile?.name || phoneNumber;
 
       if (!lead) {
-        // Cria novo lead e distribui
-        const users = await prisma.user.findMany({
-          where: {
-            role: 'user',
-            available: true
-          },
-          orderBy: { id: 'asc' }
-        });
+        // Cria novo lead e distribui a um usuário disponível; fallback admin
+        const users = await prisma.user.findMany({ where: { role: 'user', available: true }, orderBy: { id: 'asc' } });
+        const admin = await prisma.user.findFirst({ where: { role: 'admin' } });
+        const assigned = users[0] || admin
 
-        const admin = await prisma.user.findFirst({
-          where: { role: 'admin' }
-        });
-
-        // Lead para admin
-        const adminLead = await prisma.lead.create({
+        lead = await prisma.lead.create({
           data: {
             name: contactName,
             phone: phoneNumber,
             origin: 'whatsapp',
             status: 'open',
-            assignedTo: admin?.id,
+            assignedTo: assigned?.id || null,
             lastInteraction: timestamp
           }
         });
 
-        // Lead distribuído
-        if (users.length > 0) {
-          const assignedUser = users[0]; // Round-robin simples
-
-          lead = await prisma.lead.create({
-            data: {
-              name: contactName,
-              phone: phoneNumber,
-              origin: 'whatsapp',
-              status: 'open',
-              assignedTo: assignedUser.id,
-              lastInteraction: timestamp
-            }
-          });
-
-          // Log de distribuição
-          await prisma.leadLog.create({
-            data: {
-              leadId: lead.id,
-              userId: assignedUser.id,
-              action: 'Novo lead do WhatsApp distribuído automaticamente'
-            }
-          });
-
-          // Notifica usuário via WebSocket
-          if (io) {
-            io.emit('lead:new', {
-              userId: assignedUser.id,
-              lead
-            });
-          }
-        } else {
-          lead = adminLead;
+        // Log/notify se houver responsável
+        if (assigned) {
+          await prisma.leadLog.create({ data: { leadId: lead.id, userId: assigned.id, action: 'Novo lead do WhatsApp (Cloud API)' } })
+          if (io) io.emit('lead:new', { userId: assigned.id, lead })
         }
 
       } else {

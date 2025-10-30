@@ -188,7 +188,7 @@ router.get('/leads', async (req, res) => {
   const { stage, priority, assignedTo } = req.query
   let where = {}
   if (req.user.role === 'admin') {
-    // Admin vê todos
+    // Admin vê todos (mas por padrão ocultamos telefones claramente inválidos)
   } else {
     // Usuário comum vê só os leads criados manualmente por ele
     where = {
@@ -213,10 +213,26 @@ router.get('/leads', async (req, res) => {
   res.json(leads)
 })
 
+// By default hide leads with invalid phone formats (too long/short) unless explicitly requested
+// If admin provides showInvalid=true, returns all
+router.get('/leads/raw', async (req, res) => {
+  try {
+    const showInvalid = String(req.query.showInvalid).toLowerCase() === 'true'
+    const leads = await prisma.lead.findMany({
+      include: { assignedUser: true }
+    })
+    if (showInvalid) return res.json(leads)
+    const filtered = leads.filter(l => /^\d{10,15}$/.test(String(l.phone || '')))
+    res.json(filtered)
+  } catch (e) {
+    res.status(500).json({ error: 'Erro ao buscar leads' })
+  }
+})
+
 // List leads for atendimento (chat interface) — definido ANTES de /leads/:id para evitar conflito
 router.get('/leads/atendimento', async (req, res) => {
   try {
-    const { stage, assignedTo, origin } = req.query
+    const { stage, assignedTo, origin, inboundOnly, channel } = req.query
 
     let where = {}
 
@@ -231,7 +247,22 @@ router.get('/leads/atendimento', async (req, res) => {
     // Atendimento deve listar por padrão somente conversas do WhatsApp
     where.origin = origin || 'whatsapp'
 
-    const leads = await prisma.lead.findMany({
+    // Filtrar apenas leads que já receberam mensagem (inbound)
+    if (String(inboundOnly).toLowerCase() === 'true') {
+      where.messages = {
+        some: { direction: 'incoming' }
+      }
+    }
+
+    // Filtrar apenas leads que iniciaram via QR (Baileys)
+    // Heurística: mensagens recebidas via Cloud API possuem whatsappId; via Baileys geralmente não salvamos whatsappId
+    if ((channel || '').toLowerCase() === 'qr') {
+      where.messages = {
+        some: { direction: 'incoming', whatsappId: null }
+      }
+    }
+
+    let leads = await prisma.lead.findMany({
       where,
       include: {
         assignedUser: { select: { id: true, name: true, email: true } },
@@ -246,6 +277,10 @@ router.get('/leads/atendimento', async (req, res) => {
         updatedAt: 'desc' // Mais recentemente atualizados primeiro
       }
     })
+
+    // Filtra números inválidos (evitar "números aleatórios" com mais de 15 dígitos)
+    const isValidPhone = (p) => /^\d{10,15}$/.test(String(p || ''))
+    leads = leads.filter(l => isValidPhone(l.phone))
 
     // Adicionar campo de última interação
     const leadsWithLastInteraction = leads.map(lead => ({
@@ -428,24 +463,35 @@ router.post('/leads/:id/messages', async (req, res) => {
 
   const io = req.app.get('io')
 
-  // Preferir sessão QR (Baileys) se conectada; senão Cloud API; senão simulação
+  // Ordem de envio baseada na preferência salva (auto|qr|cloud)
+  // Default agora é 'cloud' (pode ser alterado nas Configurações)
+  let prefer = 'cloud'
+  try {
+    const admin = await prisma.user.findFirst({ where: { role: 'admin' }, select: { data: true } })
+    const data = JSON.parse(admin?.data || '{}')
+    prefer = data.whatsapp_prefer_channel || prefer
+  } catch { }
+
+  // Preferir sessão conforme configuração; sempre com fallback
   let result
   try {
-    if (whatsappWebService.isConnected && whatsappWebService.isConnected()) {
-      // Tenta enviar via sessão QR (Baileys)
-      try {
-        result = await whatsappWebService.sendMessage(lead.phone, text, io, req.params.id)
-      } catch (err) {
-        console.warn('Baileys lançou erro, ativando fallback Cloud API:', err?.message || err)
-        result = { success: false, error: err?.message || 'baileys-error' }
+    const sendViaQR = async () => {
+      if (whatsappWebService.isConnected && whatsappWebService.isConnected()) {
+        try { return await whatsappWebService.sendMessage(lead.phone, text, io, req.params.id) }
+        catch (err) { console.warn('Baileys erro:', err?.message || err); return { success: false } }
       }
-      // Fallback: se falhar por qualquer motivo, tenta Cloud API (ou simulação)
-      if (!result?.success) {
-        result = await whatsappService.sendMessage(lead.phone, text, io, req.params.id)
-      }
+      return { success: false, error: 'qr-not-connected' }
+    }
+
+    const sendViaCloud = async () => await whatsappService.sendMessage(lead.phone, text, io, req.params.id)
+
+    if (prefer === 'cloud') {
+      result = await sendViaCloud(); if (!result?.success) result = await sendViaQR()
+    } else if (prefer === 'qr') {
+      result = await sendViaQR(); if (!result?.success) result = await sendViaCloud()
     } else {
-      // Não conectado via QR — tenta Cloud API (ou simulação)
-      result = await whatsappService.sendMessage(lead.phone, text, io, req.params.id)
+      // auto: QR primeiro se conectado, depois Cloud
+      result = await sendViaQR(); if (!result?.success) result = await sendViaCloud()
     }
   } catch (e) {
     console.error('Erro no envio de mensagem:', e)
@@ -899,6 +945,8 @@ router.get('/whatsapp/settings', adminOnly, async (req, res) => {
       phoneNumberId: data.whatsapp_phone_number_id || '',
       accessToken: data.whatsapp_access_token ? '***CONFIGURADO***' : '',
       verifyToken: data.whatsapp_verify_token || 'lead_campanha_webhook_token_2025',
+      // Preferência padrão: 'cloud' — administrador pode mudar na UI
+      preferChannel: data.whatsapp_prefer_channel || 'cloud', // auto | qr | cloud
       isConfigured: !!(data.whatsapp_phone_number_id && data.whatsapp_access_token)
     })
   } catch (error) {
@@ -909,7 +957,7 @@ router.get('/whatsapp/settings', adminOnly, async (req, res) => {
 // Update WhatsApp settings (admin only)
 router.patch('/whatsapp/settings', adminOnly, async (req, res) => {
   try {
-    const { phoneNumberId, accessToken, verifyToken } = req.body
+    const { phoneNumberId, accessToken, verifyToken, preferChannel } = req.body
 
     const admin = await prisma.user.findFirst({ where: { role: 'admin' } })
     const currentData = JSON.parse(admin?.data || '{}')
@@ -918,6 +966,7 @@ router.patch('/whatsapp/settings', adminOnly, async (req, res) => {
     if (phoneNumberId !== undefined) currentData.whatsapp_phone_number_id = phoneNumberId
     if (accessToken !== undefined) currentData.whatsapp_access_token = accessToken
     if (verifyToken !== undefined) currentData.whatsapp_verify_token = verifyToken
+    if (preferChannel !== undefined) currentData.whatsapp_prefer_channel = preferChannel
 
     await prisma.user.update({
       where: { id: admin.id },
@@ -933,6 +982,35 @@ router.patch('/whatsapp/settings', adminOnly, async (req, res) => {
     })
   } catch (error) {
     res.status(500).json({ error: 'Erro ao atualizar configurações' })
+  }
+})
+
+// Global application settings (admin)
+router.get('/settings', adminOnly, async (req, res) => {
+  try {
+    const admin = await prisma.user.findFirst({ where: { role: 'admin' }, select: { data: true } })
+    const data = JSON.parse(admin?.data || '{}')
+    // Return sensible defaults
+    res.json({
+      distribution: data.distribution || { enabled: true, algorithm: 'round-robin', delaySeconds: 0 },
+      ai: data.ai || { enabled: true, autoResponse: true, priorityKeywords: ['comprar', 'urgente', 'quero'] }
+    })
+  } catch (e) {
+    res.status(500).json({ error: 'Erro ao carregar configurações' })
+  }
+})
+
+router.patch('/settings', adminOnly, async (req, res) => {
+  try {
+    const { distribution, ai } = req.body
+    const admin = await prisma.user.findFirst({ where: { role: 'admin' } })
+    const current = JSON.parse(admin?.data || '{}')
+    if (distribution !== undefined) current.distribution = distribution
+    if (ai !== undefined) current.ai = ai
+    await prisma.user.update({ where: { id: admin.id }, data: { data: JSON.stringify(current) } })
+    res.json({ success: true })
+  } catch (e) {
+    res.status(500).json({ error: 'Erro ao salvar configurações' })
   }
 })
 
@@ -1021,3 +1099,41 @@ router.post('/whatsapp/web/reset', adminOnly, async (req, res) => {
 })
 
 module.exports = router
+
+// ==================== MAINTENANCE (ADMIN) ====================
+// Pequena rotina de limpeza para remover leads inválidos e mensagens antigas não suportadas
+// Recomendado executar apenas quando solicitado; protegido por adminOnly no app principal (este arquivo já usa authMiddleware acima).
+router.post('/maintenance/cleanup', adminOnly, async (req, res) => {
+  try {
+    const removeUnsupported = req.body?.removeUnsupported !== false
+    const removeInvalidLeads = req.body?.removeInvalidLeads !== false
+
+    const result = { removedUnsupportedMessages: 0, removedInvalidLeads: 0 }
+
+    if (removeUnsupported) {
+      const del = await prisma.message.deleteMany({ where: { text: '[mensagem não suportada]' } })
+      result.removedUnsupportedMessages = del.count
+    }
+
+    if (removeInvalidLeads) {
+      // Busca leads e filtra por JS (regex 10-15 dígitos)
+      const all = await prisma.lead.findMany({ select: { id: true, phone: true } })
+      const invalid = all.filter(l => !/^\d{10,15}$/.test(String(l.phone || '')))
+      for (const l of invalid) {
+        try {
+          await prisma.message.deleteMany({ where: { leadId: l.id } })
+          await prisma.leadLog.deleteMany({ where: { leadId: l.id } })
+          await prisma.task.deleteMany({ where: { leadId: l.id } })
+          await prisma.lead.delete({ where: { id: l.id } })
+          result.removedInvalidLeads++
+        } catch (e) {
+          // continua limpando os demais
+        }
+      }
+    }
+
+    res.json({ success: true, ...result })
+  } catch (e) {
+    res.status(500).json({ error: 'Erro ao executar limpeza' })
+  }
+})

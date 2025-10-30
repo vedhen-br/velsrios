@@ -24,7 +24,12 @@ export default function Configuracoes() {
     phoneNumberId: '',
     accessToken: '',
     verifyToken: '',
+    preferChannel: 'auto',
     isConfigured: false
+  })
+  const [globalSettings, setGlobalSettings] = useState({
+    distribution: { enabled: true, algorithm: 'round-robin', delaySeconds: 0 },
+    ai: { enabled: true, autoResponse: true, priorityKeywords: ['comprar', 'urgente', 'quero'] }
   })
   const [testPhone, setTestPhone] = useState('')
 
@@ -66,7 +71,7 @@ export default function Configuracoes() {
   useEffect(() => {
     if (activeTab === 'users') fetchUsers()
     if (activeTab === 'tags') fetchTags()
-    if (activeTab === 'whatsapp') fetchWhatsAppConfig()
+    if (activeTab === 'whatsapp') { fetchWhatsAppConfig(); fetchGlobalSettings?.() }
   }, [activeTab])
 
   // Ao abrir a aba WhatsApp, buscar status atual (pode já existir um QR ativo)
@@ -126,6 +131,18 @@ export default function Configuracoes() {
       setWhatsappConfig(res.data)
     } catch (error) {
       console.error('Erro ao buscar configurações WhatsApp:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchGlobalSettings = async () => {
+    setLoading(true)
+    try {
+      const res = await axios.get(`${API_URL}/settings`, { headers: { Authorization: `Bearer ${token}` } })
+      setGlobalSettings(res.data)
+    } catch (e) {
+      console.error('Erro ao buscar configurações globais:', e)
     } finally {
       setLoading(false)
     }
@@ -584,6 +601,24 @@ export default function Configuracoes() {
                       <h3 className="font-semibold text-gray-900 mb-4">🔑 Credenciais da API</h3>
 
                       <div className="space-y-4">
+                        {/* Preferência de canal */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Canal preferido
+                          </label>
+                          <select
+                            value={whatsappConfig.preferChannel}
+                            onChange={(e) => setWhatsappConfig({ ...whatsappConfig, preferChannel: e.target.value })}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          >
+                            <option value="auto">Automático (QR se online, fallback Cloud)</option>
+                            <option value="cloud">Preferir Cloud API</option>
+                            <option value="qr">Preferir QR (Baileys)</option>
+                          </select>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Define a ordem de envio quando ambos os canais estiverem disponíveis
+                          </p>
+                        </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
                             Phone Number ID
@@ -751,14 +786,14 @@ export default function Configuracoes() {
                       </h3>
                       <div className="space-y-3">
                         <div className="flex items-center gap-2">
-                          <input type="checkbox" id="autoDistribute" defaultChecked className="w-4 h-4" />
+                          <input type="checkbox" id="autoDistribute" checked={!!globalSettings.distribution?.enabled} onChange={e => setGlobalSettings({ ...globalSettings, distribution: { ...globalSettings.distribution, enabled: e.target.checked } })} className="w-4 h-4" />
                           <label htmlFor="autoDistribute" className="text-sm text-gray-700">
                             Ativar distribuição automática
                           </label>
                         </div>
                         <div>
                           <label className="block text-xs text-gray-600 mb-1">Algoritmo</label>
-                          <select className="w-full px-3 py-2 border rounded text-sm">
+                          <select className="w-full px-3 py-2 border rounded text-sm" value={globalSettings.distribution?.algorithm} onChange={e => setGlobalSettings({ ...globalSettings, distribution: { ...globalSettings.distribution, algorithm: e.target.value } })}>
                             <option value="round-robin">Round-Robin (Rotativo)</option>
                             <option value="least-busy">Menos Ocupado</option>
                             <option value="random">Aleatório</option>
@@ -766,7 +801,7 @@ export default function Configuracoes() {
                         </div>
                         <div>
                           <label className="block text-xs text-gray-600 mb-1">Tempo de espera (segundos)</label>
-                          <input type="number" defaultValue="0" min="0" max="300" className="w-full px-3 py-2 border rounded text-sm" />
+                          <input type="number" value={globalSettings.distribution?.delaySeconds || 0} onChange={e => setGlobalSettings({ ...globalSettings, distribution: { ...globalSettings.distribution, delaySeconds: parseInt(e.target.value || 0) } })} min="0" max="300" className="w-full px-3 py-2 border rounded text-sm" />
                           <p className="text-xs text-gray-500 mt-1">Aguardar antes de distribuir</p>
                         </div>
                       </div>
@@ -779,20 +814,20 @@ export default function Configuracoes() {
                       </h3>
                       <div className="space-y-3">
                         <div className="flex items-center gap-2">
-                          <input type="checkbox" id="aiEnabled" defaultChecked className="w-4 h-4" />
+                          <input type="checkbox" id="aiEnabled" checked={!!globalSettings.ai?.enabled} onChange={e => setGlobalSettings({ ...globalSettings, ai: { ...globalSettings.ai, enabled: e.target.checked } })} className="w-4 h-4" />
                           <label htmlFor="aiEnabled" className="text-sm text-gray-700">
                             Ativar classificação por IA
                           </label>
                         </div>
                         <div className="flex items-center gap-2">
-                          <input type="checkbox" id="autoResponse" defaultChecked className="w-4 h-4" />
+                          <input type="checkbox" id="autoResponse" checked={!!globalSettings.ai?.autoResponse} onChange={e => setGlobalSettings({ ...globalSettings, ai: { ...globalSettings.ai, autoResponse: e.target.checked } })} className="w-4 h-4" />
                           <label htmlFor="autoResponse" className="text-sm text-gray-700">
                             Resposta automática inicial
                           </label>
                         </div>
                         <div>
                           <label className="block text-xs text-gray-600 mb-1">Palavras-chave alta prioridade</label>
-                          <input type="text" defaultValue="comprar, urgente, quero" className="w-full px-3 py-2 border rounded text-sm" />
+                          <input type="text" value={(globalSettings.ai?.priorityKeywords || []).join(', ')} onChange={e => setGlobalSettings({ ...globalSettings, ai: { ...globalSettings.ai, priorityKeywords: e.target.value.split(',').map(s => s.trim()).filter(Boolean) } })} className="w-full px-3 py-2 border rounded text-sm" />
                           <p className="text-xs text-gray-500 mt-1">Separadas por vírgula</p>
                         </div>
                       </div>
@@ -898,11 +933,34 @@ export default function Configuracoes() {
                   </div>
 
                   <div className="mt-6 flex justify-end gap-2">
-                    <button className="px-6 py-2 border rounded-lg hover:bg-white">
-                      Cancelar
+                    <button className="px-6 py-2 border rounded-lg hover:bg-white" onClick={() => { fetchWhatsAppConfig(); fetchGlobalSettings(); }}>
+                      Recarregar
                     </button>
-                    <button className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    <button className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700" onClick={async () => {
+                      setLoading(true)
+                      try {
+                        // Save whatsapp credentials
+                        await axios.patch(`${API_URL}/whatsapp/settings`, whatsappConfig, { headers: { Authorization: `Bearer ${token}` } })
+                        // Save global settings
+                        await axios.patch(`${API_URL}/settings`, globalSettings, { headers: { Authorization: `Bearer ${token}` } })
+                        alert('✅ Configurações salvas')
+                        fetchWhatsAppConfig(); fetchGlobalSettings()
+                      } catch (e) { console.error(e); alert('Erro ao salvar configurações') }
+                      setLoading(false)
+                    }}>
                       💾 Salvar Configurações
+                    </button>
+                    <button className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700" onClick={async () => {
+                      if (!confirm('Executar limpeza: remover mensagens [mensagem não suportada] e leads com telefones inválidos?')) return
+                      setLoading(true)
+                      try {
+                        const res = await axios.post(`${API_URL}/maintenance/cleanup`, {}, { headers: { Authorization: `Bearer ${token}` } })
+                        alert(`Limpeza completa: ${res.data.removedUnsupportedMessages || 0} mensagens removidas, ${res.data.removedInvalidLeads || 0} leads removidos.`)
+                        fetchUsers(); fetchTags(); fetchWhatsAppConfig(); fetchGlobalSettings()
+                      } catch (e) { console.error(e); alert('Erro ao executar limpeza') }
+                      setLoading(false)
+                    }}>
+                      🧹 Limpar inválidos
                     </button>
                   </div>
                 </div>

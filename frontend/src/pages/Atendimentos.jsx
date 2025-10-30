@@ -107,6 +107,9 @@ export default function Atendimentos() {
       if (filter === 'mine' && user.role !== 'admin') params.assignedTo = user.id
       // Apenas leads de origem WhatsApp
       params.origin = 'whatsapp'
+      // Mostrar apenas contatos que iniciaram via WhatsApp Web (QR)
+      params.inboundOnly = true
+      params.channel = 'qr'
 
       const res = await axios.get(`${API}/leads/atendimento`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -139,7 +142,14 @@ export default function Atendimentos() {
       setSelectedLead(res.data)
       setMessages(res.data.messages || [])
     } catch (e) {
-      console.error(e)
+      // Se o lead não existe mais ou não há permissão, limpa seleção e recarrega a lista
+      if (e?.response?.status === 404 || e?.response?.status === 403) {
+        setSelectedLead(null)
+        setSelectedLeadId(null)
+        fetchLeads()
+      } else {
+        console.error(e)
+      }
     }
   }
 
@@ -211,19 +221,23 @@ export default function Atendimentos() {
     if (data?.status) setWaStatus(data.status)
   }, []))
 
-  // Poll do status do WhatsApp Web (caso evento não chegue)
+  // Poll do status do WhatsApp Web (caso evento não chegue) — somente para admin
   useEffect(() => {
+    if (!token || user?.role !== 'admin') return
     const API = getApiUrl()
     const poll = async () => {
       try {
         const res = await axios.get(`${API}/whatsapp/web/status`, { headers: { Authorization: `Bearer ${token}` } })
         if (res.data?.status) setWaStatus(res.data.status)
-      } catch { }
+      } catch (e) {
+        // Interrompe polling em caso de erro (por exemplo, 403)
+        clearInterval(t)
+      }
     }
     poll()
     const t = setInterval(poll, 10000)
     return () => clearInterval(t)
-  }, [token])
+  }, [token, user])
 
   async function sendMessage(e) {
     e.preventDefault()
@@ -399,7 +413,14 @@ export default function Atendimentos() {
                           <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded">Novo</span>
                         )}
                       </div>
-                      <p className="text-xs text-gray-600 mt-1 truncate">{lead.messages?.[lead.messages.length - 1]?.text || lead.interest || 'Sem mensagens'}</p>
+                      <p className="text-xs text-gray-600 mt-1 truncate">{
+                        (() => {
+                          const last = lead.messages?.[lead.messages.length - 1]
+                          const txt = last?.text || ''
+                          if (txt === '[mensagem não suportada]') return 'Sem mensagens'
+                          return txt || lead.interest || 'Sem mensagens'
+                        })()
+                      }</p>
                       <div className="flex items-center gap-2 mt-2">
                         <span className={`text-xs px-2 py-0.5 rounded ${lead.priority === 'high' ? 'bg-red-100 text-red-700' : lead.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-700'}`}>{lead.priority}</span>
                         <span className="text-xs text-gray-500">{lead.stage}</span>
@@ -534,70 +555,73 @@ export default function Atendimentos() {
                       </span>
                     </div>
                     <div className="mt-2 space-y-3">
-                      {section.items.map((msg, idx) => {
-                        const isOutgoing = msg.direction === 'outgoing' || msg.sender === 'agent'
-                        const isBot = msg.sender === 'bot'
-                        const isCustomer = msg.sender === 'customer'
+                      {section.items
+                        // Oculta mensagens antigas marcadas como não suportadas (ruído gerado antes do fix)
+                        .filter(msg => msg?.text !== '[mensagem não suportada]')
+                        .map((msg, idx) => {
+                          const isOutgoing = msg.direction === 'outgoing' || msg.sender === 'agent'
+                          const isBot = msg.sender === 'bot'
+                          const isCustomer = msg.sender === 'customer'
 
-                        return (
-                          <div key={msg.id || idx} className={`group relative flex ${isOutgoing ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`max-w-[70%] ${isOutgoing ? 'order-2' : 'order-1'}`}>
-                              <div className={`rounded-2xl p-3 shadow ${isBot ? 'bg-emerald-50 text-emerald-900 border border-emerald-200' :
-                                isOutgoing ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-md' : 'bg-white border border-gray-200 shadow-sm'
-                                }`}>
-                                {isCustomer && (
-                                  <p className="text-xs text-gray-500 mb-1">{msg.sender}</p>
-                                )}
-                                {isBot && (
-                                  <p className="text-xs text-emerald-700 mb-1 font-semibold">🤖 IA</p>
-                                )}
+                          return (
+                            <div key={msg.id || idx} className={`group relative flex ${isOutgoing ? 'justify-end' : 'justify-start'}`}>
+                              <div className={`max-w-[70%] ${isOutgoing ? 'order-2' : 'order-1'}`}>
+                                <div className={`rounded-2xl p-3 shadow ${isBot ? 'bg-emerald-50 text-emerald-900 border border-emerald-200' :
+                                  isOutgoing ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-md' : 'bg-white border border-gray-200 shadow-sm'
+                                  }`}>
+                                  {isCustomer && (
+                                    <p className="text-xs text-gray-500 mb-1">{msg.sender}</p>
+                                  )}
+                                  {isBot && (
+                                    <p className="text-xs text-emerald-700 mb-1 font-semibold">🤖 IA</p>
+                                  )}
 
-                                {/* Mídia */}
-                                {msg.mediaUrl && (/^(https?:\/\/|data:)/i.test(msg.mediaUrl)) && (
-                                  <div className="mb-2">
-                                    {msg.mediaUrl.startsWith('data:') || /\.(png|jpg|jpeg|gif|webp)$/i.test(msg.mediaUrl) ? (
-                                      <img src={msg.mediaUrl} alt="Mídia" className="rounded max-w-full" />
-                                    ) : (
-                                      <a href={msg.mediaUrl} target="_blank" rel="noopener noreferrer" className="text-sm underline">
-                                        📎 Ver arquivo
-                                      </a>
+                                  {/* Mídia */}
+                                  {msg.mediaUrl && (/^(https?:\/\/|data:)/i.test(msg.mediaUrl)) && (
+                                    <div className="mb-2">
+                                      {msg.mediaUrl.startsWith('data:') || /\.(png|jpg|jpeg|gif|webp)$/i.test(msg.mediaUrl) ? (
+                                        <img src={msg.mediaUrl} alt="Mídia" className="rounded max-w-full" />
+                                      ) : (
+                                        <a href={msg.mediaUrl} target="_blank" rel="noopener noreferrer" className="text-sm underline">
+                                          📎 Ver arquivo
+                                        </a>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.text || msg.content}</p>
+
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <p className={`text-[11px] ${isOutgoing && !isBot ? 'text-blue-100' : 'text-gray-500'}`}>
+                                      {formatTime(msg.createdAt)}
+                                    </p>
+                                    {isOutgoing && !isBot && msg.status && (
+                                      <span className={`text-[11px] ${msg.status === 'read' ? 'text-blue-200' : 'text-blue-100'}`}>
+                                        {getStatusIcon(msg.status)}
+                                      </span>
                                     )}
                                   </div>
-                                )}
-
-                                <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.text || msg.content}</p>
-
-                                <div className="flex items-center gap-2 mt-1">
-                                  <p className={`text-[11px] ${isOutgoing && !isBot ? 'text-blue-100' : 'text-gray-500'}`}>
-                                    {formatTime(msg.createdAt)}
-                                  </p>
-                                  {isOutgoing && !isBot && msg.status && (
-                                    <span className={`text-[11px] ${msg.status === 'read' ? 'text-blue-200' : 'text-blue-100'}`}>
-                                      {getStatusIcon(msg.status)}
-                                    </span>
-                                  )}
                                 </div>
                               </div>
+                              {/* Apagar mensagem (admin ou dono do lead) */}
+                              {user?.role === 'admin' || selectedLead?.assignedTo === user?.id ? (
+                                <button
+                                  onClick={async () => {
+                                    if (!msg.id) return
+                                    try {
+                                      await axios.delete(`${API}/leads/${selectedLead.id}/messages/${msg.id}`, { headers: { Authorization: `Bearer ${token}` } })
+                                      setMessages(prev => prev.filter(m => m.id !== msg.id))
+                                    } catch (e) {
+                                      alert('Não foi possível apagar a mensagem')
+                                    }
+                                  }}
+                                  className={`absolute -top-2 ${isOutgoing ? 'right-0' : 'left-0'} hidden group-hover:block text-xs text-gray-400 hover:text-red-600`}
+                                  title="Apagar mensagem"
+                                >🗑️</button>
+                              ) : null}
                             </div>
-                            {/* Apagar mensagem (admin ou dono do lead) */}
-                            {user?.role === 'admin' || selectedLead?.assignedTo === user?.id ? (
-                              <button
-                                onClick={async () => {
-                                  if (!msg.id) return
-                                  try {
-                                    await axios.delete(`${API}/leads/${selectedLead.id}/messages/${msg.id}`, { headers: { Authorization: `Bearer ${token}` } })
-                                    setMessages(prev => prev.filter(m => m.id !== msg.id))
-                                  } catch (e) {
-                                    alert('Não foi possível apagar a mensagem')
-                                  }
-                                }}
-                                className={`absolute -top-2 ${isOutgoing ? 'right-0' : 'left-0'} hidden group-hover:block text-xs text-gray-400 hover:text-red-600`}
-                                title="Apagar mensagem"
-                              >🗑️</button>
-                            ) : null}
-                          </div>
-                        )
-                      })}
+                          )
+                        })}
                     </div>
                   </div>
                 ))}

@@ -28,6 +28,22 @@ class WhatsAppWebService {
     return this.status === 'connected' && this.sock
   }
 
+  // Normaliza telefone para E.164 simples usando código do país padrão (ex: Brasil 55)
+  normalizePhone(raw) {
+    try {
+      const defCC = process.env.DEFAULT_COUNTRY_CODE || '55'
+      let digits = String(raw || '').replace(/\D/g, '')
+      // Se já começa com o código do país (ex.: 55...) mantém
+      if (digits.startsWith(defCC)) return digits
+      // Se vier com 13+ dígitos, assume que já contém DDI
+      if (digits.length >= 12) return digits
+      // Caso contrário, prefixa DDI padrão
+      return defCC + digits
+    } catch {
+      return String(raw || '').replace(/\D/g, '')
+    }
+  }
+
   async startSession(io) {
     this.io = io
     const logger = pino({ level: 'silent' })
@@ -75,6 +91,18 @@ class WhatsAppWebService {
       }
     })
 
+    // Helper: desencaixa mensagens com wrappers (ephemeral/viewOnce/etc.)
+    const unwrapMessage = (msgObj) => {
+      let m = msgObj?.message || {}
+      if (m.ephemeralMessage?.message) m = m.ephemeralMessage.message
+      if (m.viewOnceMessageV2?.message) m = m.viewOnceMessageV2.message
+      if (m.viewOnceMessage?.message) m = m.viewOnceMessage.message
+      if (m.documentWithCaptionMessage?.message) m = m.documentWithCaptionMessage.message
+      // Alguns tipos vêm aninhados dentro de "interactiveResponseMessage.message"
+      if (m.interactiveResponseMessage?.message) m = m.interactiveResponseMessage.message
+      return m || {}
+    }
+
     // Mensagens recebidas
     this.sock.ev.on('messages.upsert', async (u) => {
       try {
@@ -82,10 +110,26 @@ class WhatsAppWebService {
         if (!msg || msg.key.fromMe) return
 
         const remoteJid = msg.key.remoteJid || ''
-        const phone = (remoteJid.match(/\d+/g) || []).join('')
+        let phone = (remoteJid.match(/\d+/g) || []).join('')
+        phone = this.normalizePhone(phone)
+        if (!phone || phone.length < 10 || phone.length > 15) return
 
-        // Extrai texto básico
-        const m = msg.message || {}
+        // Extrai texto básico (com unwrapping)
+        const m = unwrapMessage(msg)
+
+        // Ignorar mensagens de sincronização de histórico/controle e reações (não são mensagens do usuário)
+        if (
+          msg.message?.protocolMessage ||
+          msg.message?.senderKeyDistributionMessage ||
+          msg.message?.messageContextInfo ||
+          msg.messageStubType ||
+          m?.protocolMessage ||
+          m?.senderKeyDistributionMessage ||
+          m?.messageContextInfo ||
+          m?.reactionMessage
+        ) {
+          return
+        }
         const text =
           m.conversation ||
           m.extendedTextMessage?.text ||
@@ -95,7 +139,8 @@ class WhatsAppWebService {
           m.listResponseMessage?.title ||
           m.templateButtonReplyMessage?.selectedDisplayText ||
           m.interactiveResponseMessage?.body?.text ||
-          '[mensagem não suportada]'
+          m.buttonsMessage?.contentText ||
+          ''
 
         const timestamp = new Date()
         // Busca ou cria lead
@@ -126,8 +171,19 @@ class WhatsAppWebService {
           await prisma.lead.update({ where: { id: lead.id }, data: { lastInteraction: timestamp } })
         }
 
+        // Se não há texto útil, ignora para evitar spam de "[mensagem não suportada]" (ex.: history sync)
+        if (!text || !String(text).trim()) {
+          return
+        }
+
         const savedMessage = await prisma.message.create({
-          data: { leadId: lead.id, text, direction: 'incoming', sender: 'customer', createdAt: timestamp }
+          data: {
+            leadId: lead.id,
+            text: text,
+            direction: 'incoming',
+            sender: 'customer',
+            createdAt: timestamp
+          }
         })
 
         if (this.io) {
@@ -219,7 +275,8 @@ class WhatsAppWebService {
   async sendMessage(to, message, io = null, leadId = null, sender = 'agent') {
     try {
       if (!this.isConnected()) return { success: false, error: 'not-connected' }
-      const jid = `${String(to).replace(/\D/g, '')}@s.whatsapp.net`
+      const normalized = this.normalizePhone(to)
+      const jid = `${normalized}@s.whatsapp.net`
       await this.sock.sendMessage(jid, { text: message })
 
       // Persistir mensagem como enviada pelo agente
