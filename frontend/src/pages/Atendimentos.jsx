@@ -160,43 +160,78 @@ export default function Atendimentos() {
 
   // WebSocket: Nova mensagem
   const handleNewMessage = useCallback((data) => {
-    console.log('📩 Nova mensagem recebida:', data)
+    console.debug('📩 message:new event received:', {
+      leadId: data?.leadId,
+      messageId: data?.message?.id,
+      text: data?.message?.text?.slice(0, 50),
+      direction: data?.message?.direction,
+      sender: data?.message?.sender,
+      timestamp: new Date().toISOString()
+    })
 
-    // Atualizar mensagens se for do lead selecionado
-    if (data.leadId === selectedLeadId) {
-      setMessages(prev => [...prev, data.message])
+    // Update messages if for the currently selected lead
+    if (data?.leadId === selectedLeadId) {
+      console.debug('✅ Message is for selected lead, updating messages list')
+      setMessages(prev => {
+        // Avoid duplicates by checking if message already exists
+        const exists = prev.some(m => m.id === data.message.id)
+        if (exists) {
+          console.debug('⚠️ Message already exists in list, skipping duplicate')
+          return prev
+        }
+        return [...prev, data.message]
+      })
+    } else {
+      console.debug('ℹ️ Message is for different lead, will show in unread badge')
     }
 
-    // Atualizar lista de leads
+    // Always refresh leads list to update last message preview and timestamps
     fetchLeads()
 
-    // Notificação in-app
-    const preview = data.message?.text?.slice(0, 80) || 'Nova mensagem'
+    // Show in-app notification
+    const preview = data?.message?.text?.slice(0, 80) || 'Nova mensagem'
+    const leadName = data?.lead?.name || data?.leadName || data?.lead?.phone || 'Lead'
     notify({
       title: 'Nova mensagem',
-      message: `${data.leadName || 'Lead'}: ${preview}`,
+      message: `${leadName}: ${preview}`,
       type: 'info'
     })
-  }, [selectedLeadId])
+  }, [selectedLeadId, notify])
 
   // WebSocket: Novo lead
   const handleNewLead = useCallback((data) => {
-    console.log('🆕 Novo lead:', data)
-    if (data.userId === user.id || user.role === 'admin') {
+    console.debug('🆕 lead:new event received:', {
+      leadId: data?.lead?.id,
+      phone: data?.lead?.phone,
+      userId: data?.userId,
+      currentUserId: user?.id,
+      timestamp: new Date().toISOString()
+    })
+    
+    if (data?.userId === user?.id || user?.role === 'admin') {
+      console.debug('✅ New lead assigned to current user or user is admin, refreshing leads list')
       fetchLeads()
       // Notificação in-app
       notify({
         title: 'Novo lead',
-        message: `${data.lead.name || data.lead.phone} iniciou uma conversa`,
+        message: `${data.lead?.name || data.lead?.phone} iniciou uma conversa`,
         type: 'success'
       })
+    } else {
+      console.debug('ℹ️ New lead assigned to different user, skipping')
     }
-  }, [user])
+  }, [user, notify])
 
   // WebSocket: Status de mensagem
   const handleMessageStatus = useCallback((data) => {
+    console.debug('📊 message:status event received:', {
+      whatsappId: data?.whatsappId,
+      status: data?.status,
+      timestamp: new Date().toISOString()
+    })
+    
     setMessages(prev => prev.map(msg =>
-      msg.whatsappId === data.whatsappId
+      msg.whatsappId === data?.whatsappId
         ? { ...msg, status: data.status }
         : msg
     ))
