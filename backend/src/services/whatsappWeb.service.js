@@ -188,22 +188,81 @@ class WhatsAppWebService {
       // Evento crítico: mensagens recebidas (upsert)
       this.sock.ev.on('messages.upsert', async (u) => {
         try {
-          const msg = u.messages?.[0]
-          if (!msg || msg.key.fromMe) return
+          // DEBUG: Log every messages.upsert event received
+          logger.debug('[DEBUG] messages.upsert event received:', { 
+            messageCount: u.messages?.length,
+            type: u.type 
+          })
 
-          const remoteJid = msg.key.remoteJid || ''
+          const msg = u.messages?.[0]
+          if (!msg) {
+            logger.debug('[DEBUG] No message in upsert event, skipping')
+            return
+          }
+
+          // ONLY process inbound messages (not sent by us)
+          if (msg.key.fromMe) {
+            logger.debug('[DEBUG] Skipping outbound message (fromMe=true)')
+            return
+          }
+
+          const remoteJid = msg.key?.remoteJid || ''
+          const messageId = msg.key?.id || ''
+
+          // DEBUG: Log message basics before processing
+          logger.debug('[DEBUG] Processing inbound message:', {
+            remoteJid,
+            messageId,
+            fromMe: msg.key.fromMe,
+            hasMessage: !!msg.message,
+            messageStubType: msg.messageStubType
+          })
+
+          // Defensive guard: Skip broadcast and status messages
+          if (remoteJid.includes('broadcast') || remoteJid.includes('status@broadcast')) {
+            logger.debug('[DEBUG] Skipping broadcast/status message:', { remoteJid })
+            return
+          }
+
+          // Defensive guard: Skip group messages for now (can be enabled later)
+          if (remoteJid.includes('@g.us')) {
+            logger.debug('[DEBUG] Skipping group message (not supported yet):', { remoteJid })
+            return
+          }
+
+          // Normalize phone from JID (strip @s.whatsapp.net)
           let phone = (remoteJid.match(/\d+/g) || []).join('')
           phone = this.normalizePhone(phone)
           
-          logger.info('📥 Mensagem recebida:', { phone, jid: remoteJid, hasMessage: !!msg.message })
+          logger.info('📥 Mensagem recebida:', { phone, jid: remoteJid, messageId, hasMessage: !!msg.message })
           
           if (!phone || phone.length < 10 || phone.length > 15) {
-            logger.warn('⚠️ Telefone inválido ignorado:', { phone, length: phone?.length })
+            logger.warn('⚠️ Telefone inválido ignorado:', { phone, length: phone?.length, remoteJid })
             return
           }
 
           // Extrai texto básico (com unwrapping)
           const m = unwrapMessage(msg)
+
+          // DEBUG: Log message types detected
+          const detectedTypes = []
+          if (m.conversation) detectedTypes.push('conversation')
+          if (m.extendedTextMessage) detectedTypes.push('extendedText')
+          if (m.imageMessage) detectedTypes.push('image')
+          if (m.videoMessage) detectedTypes.push('video')
+          if (m.audioMessage) detectedTypes.push('audio')
+          if (m.documentMessage) detectedTypes.push('document')
+          if (m.buttonsResponseMessage) detectedTypes.push('buttonsResponse')
+          if (m.listResponseMessage) detectedTypes.push('listResponse')
+          if (m.templateButtonReplyMessage) detectedTypes.push('templateButtonReply')
+          if (m.interactiveResponseMessage) detectedTypes.push('interactiveResponse')
+          if (m.buttonsMessage) detectedTypes.push('buttons')
+
+          logger.debug('[DEBUG] Message types detected:', { 
+            types: detectedTypes.join(', ') || 'none',
+            hasProtocol: !!m.protocolMessage,
+            hasReaction: !!m.reactionMessage
+          })
 
           // Ignorar mensagens de sincronização de histórico/controle e reações (não são mensagens do usuário)
           if (
@@ -216,15 +275,18 @@ class WhatsAppWebService {
             m?.messageContextInfo ||
             m?.reactionMessage
           ) {
-            logger.debug('⏭️ Mensagem de controle/sincronização ignorada')
+            logger.debug('[DEBUG] Skipping control/sync/reaction message')
             return
           }
           
+          // Comprehensive text extraction supporting all message types
           const text =
             m.conversation ||
             m.extendedTextMessage?.text ||
             m.imageMessage?.caption ||
             m.videoMessage?.caption ||
+            m.audioMessage?.caption ||
+            m.documentMessage?.caption ||
             m.buttonsResponseMessage?.selectedDisplayText ||
             m.listResponseMessage?.title ||
             m.templateButtonReplyMessage?.selectedDisplayText ||
@@ -233,6 +295,16 @@ class WhatsAppWebService {
             ''
 
           const timestamp = new Date()
+          
+          // DEBUG: Compact summary of extracted data
+          logger.debug('[DEBUG] Message processed summary:', {
+            remoteJid,
+            fromMe: msg.key.fromMe,
+            phone,
+            types: detectedTypes.join(', ') || 'none',
+            textLength: text?.length || 0,
+            textPreview: text?.slice(0, 50) || 'no text'
+          })
           
           logger.info('💬 Texto extraído:', { text: text?.slice(0, 100), hasText: !!text })
           
@@ -269,7 +341,7 @@ class WhatsAppWebService {
 
           // Se não há texto útil, ignora para evitar spam de "[mensagem não suportada]"
           if (!text || !String(text).trim()) {
-            logger.debug('⏭️ Mensagem sem texto útil ignorada')
+            logger.debug('[DEBUG] Skipping message with no useful text')
             return
           }
 
@@ -279,15 +351,25 @@ class WhatsAppWebService {
               text: text,
               direction: 'incoming',
               sender: 'customer',
+              whatsappId: messageId || null,
               createdAt: timestamp
             }
           })
 
-          logger.info('💾 Mensagem salva no banco:', { messageId: savedMessage.id, leadId: lead.id })
+          logger.info('💾 Mensagem salva no banco:', { 
+            messageId: savedMessage.id, 
+            leadId: lead.id,
+            whatsappId: messageId 
+          })
 
           if (this.io) {
             this.io.emit('message:new', { leadId: lead.id, message: savedMessage, lead })
-            logger.debug('📡 Evento message:new emitido via socket.io')
+            logger.debug('[DEBUG] Socket.io event "message:new" emitted:', { 
+              leadId: lead.id, 
+              messageId: savedMessage.id 
+            })
+          } else {
+            logger.warn('[DEBUG] Socket.io not available, event not emitted')
           }
 
           // Gerar resposta automática via IA (classificador/responder simples)

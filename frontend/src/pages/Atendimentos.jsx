@@ -160,11 +160,29 @@ export default function Atendimentos() {
 
   // WebSocket: Nova mensagem
   const handleNewMessage = useCallback((data) => {
-    console.log('📩 Nova mensagem recebida:', data)
+    console.log('[DEBUG] 📩 message:new event received:', {
+      leadId: data.leadId,
+      messageId: data.message?.id,
+      text: data.message?.text?.slice(0, 50),
+      sender: data.message?.sender,
+      direction: data.message?.direction,
+      timestamp: new Date().toISOString()
+    })
 
     // Atualizar mensagens se for do lead selecionado
     if (data.leadId === selectedLeadId) {
-      setMessages(prev => [...prev, data.message])
+      console.log('[DEBUG] Message is for selected lead, updating messages list')
+      setMessages(prev => {
+        // Avoid duplicates
+        const exists = prev.some(m => m.id === data.message.id)
+        if (exists) {
+          console.log('[DEBUG] Message already exists, skipping')
+          return prev
+        }
+        return [...prev, data.message]
+      })
+    } else {
+      console.log('[DEBUG] Message is for different lead, updating lead list only')
     }
 
     // Atualizar lista de leads
@@ -181,7 +199,13 @@ export default function Atendimentos() {
 
   // WebSocket: Novo lead
   const handleNewLead = useCallback((data) => {
-    console.log('🆕 Novo lead:', data)
+    console.log('[DEBUG] 🆕 lead:new event received:', {
+      leadId: data.lead?.id,
+      phone: data.lead?.phone,
+      userId: data.userId,
+      timestamp: new Date().toISOString()
+    })
+    
     if (data.userId === user.id || user.role === 'admin') {
       fetchLeads()
       // Notificação in-app
@@ -195,6 +219,12 @@ export default function Atendimentos() {
 
   // WebSocket: Status de mensagem
   const handleMessageStatus = useCallback((data) => {
+    console.log('[DEBUG] 📊 message:status event received:', {
+      whatsappId: data.whatsappId,
+      status: data.status,
+      timestamp: new Date().toISOString()
+    })
+    
     setMessages(prev => prev.map(msg =>
       msg.whatsappId === data.whatsappId
         ? { ...msg, status: data.status }
