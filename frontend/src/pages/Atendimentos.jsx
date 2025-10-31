@@ -160,10 +160,11 @@ export default function Atendimentos() {
 
   // WebSocket: Nova mensagem
   const handleNewMessage = useCallback((data) => {
-    console.log('📩 Nova mensagem recebida:', data)
+    console.debug('[SOCKET] message:new recebido:', data)
 
     // Atualizar mensagens se for do lead selecionado
     if (data.leadId === selectedLeadId) {
+      console.debug('[SOCKET] Atualizando thread ativo:', { leadId: data.leadId, messageId: data.message?.id })
       setMessages(prev => [...prev, data.message])
     }
 

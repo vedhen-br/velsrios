@@ -188,10 +188,31 @@ class WhatsAppWebService {
       // Evento crítico: mensagens recebidas (upsert)
       this.sock.ev.on('messages.upsert', async (u) => {
         try {
+          logger.debug('[DEBUG] messages.upsert received:', { 
+            messageCount: u.messages?.length,
+            type: u.type 
+          })
+
           const msg = u.messages?.[0]
-          if (!msg || msg.key.fromMe) return
+          if (!msg || msg.key.fromMe) {
+            logger.debug('[DEBUG] Skipping message: fromMe or no message')
+            return
+          }
 
           const remoteJid = msg.key.remoteJid || ''
+          
+          // Defensive guards: skip broadcast/status/group JIDs
+          if (
+            !remoteJid ||
+            remoteJid === 'status@broadcast' ||
+            remoteJid.includes('@broadcast') ||
+            remoteJid.includes('@g.us') || // Group chats
+            remoteJid.includes('@newsletter') // Newsletter/channel
+          ) {
+            logger.debug('[DEBUG] Skipping non-individual JID:', { remoteJid })
+            return
+          }
+
           let phone = (remoteJid.match(/\d+/g) || []).join('')
           phone = this.normalizePhone(phone)
           
@@ -220,11 +241,27 @@ class WhatsAppWebService {
             return
           }
           
+          // Detect message types for debugging
+          const detectedTypes = []
+          if (m.conversation) detectedTypes.push('conversation')
+          if (m.extendedTextMessage) detectedTypes.push('extendedTextMessage')
+          if (m.imageMessage) detectedTypes.push('imageMessage')
+          if (m.videoMessage) detectedTypes.push('videoMessage')
+          if (m.audioMessage) detectedTypes.push('audioMessage')
+          if (m.documentMessage) detectedTypes.push('documentMessage')
+          if (m.buttonsResponseMessage) detectedTypes.push('buttonsResponseMessage')
+          if (m.listResponseMessage) detectedTypes.push('listResponseMessage')
+          if (m.templateButtonReplyMessage) detectedTypes.push('templateButtonReplyMessage')
+          if (m.interactiveResponseMessage) detectedTypes.push('interactiveResponseMessage')
+          if (m.buttonsMessage) detectedTypes.push('buttonsMessage')
+
           const text =
             m.conversation ||
             m.extendedTextMessage?.text ||
             m.imageMessage?.caption ||
             m.videoMessage?.caption ||
+            m.audioMessage?.caption ||
+            m.documentMessage?.caption ||
             m.buttonsResponseMessage?.selectedDisplayText ||
             m.listResponseMessage?.title ||
             m.templateButtonReplyMessage?.selectedDisplayText ||
@@ -233,6 +270,14 @@ class WhatsAppWebService {
             ''
 
           const timestamp = new Date()
+          
+          logger.debug('[DEBUG] Message details:', {
+            remoteJid,
+            fromMe: msg.key.fromMe,
+            detectedTypes,
+            textPreview: text?.slice(0, 50) || '[no text]',
+            hasText: !!text
+          })
           
           logger.info('💬 Texto extraído:', { text: text?.slice(0, 100), hasText: !!text })
           
@@ -279,15 +324,16 @@ class WhatsAppWebService {
               text: text,
               direction: 'incoming',
               sender: 'customer',
+              whatsappId: msg.key.id || null,
               createdAt: timestamp
             }
           })
 
-          logger.info('💾 Mensagem salva no banco:', { messageId: savedMessage.id, leadId: lead.id })
+          logger.info('[WhatsApp] Mensagem recebida persistida:', { messageId: savedMessage.id, leadId: lead.id, whatsappId: msg.key.id })
 
           if (this.io) {
             this.io.emit('message:new', { leadId: lead.id, message: savedMessage, lead })
-            logger.debug('📡 Evento message:new emitido via socket.io')
+            logger.info('[WhatsApp] Evento message:new emitido:', { leadId: lead.id, messageId: savedMessage.id })
           }
 
           // Gerar resposta automática via IA (classificador/responder simples)
