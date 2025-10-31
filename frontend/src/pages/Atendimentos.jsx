@@ -160,11 +160,21 @@ export default function Atendimentos() {
 
   // WebSocket: Nova mensagem
   const handleNewMessage = useCallback((data) => {
-    console.log('📩 Nova mensagem recebida:', data)
+    console.log('[DEBUG] 📩 Nova mensagem recebida via socket:', {
+      leadId: data.leadId,
+      messageId: data.message?.id,
+      sender: data.message?.sender,
+      direction: data.message?.direction,
+      textPreview: data.message?.text?.slice(0, 50),
+      timestamp: new Date().toISOString()
+    })
 
     // Atualizar mensagens se for do lead selecionado
     if (data.leadId === selectedLeadId) {
       setMessages(prev => [...prev, data.message])
+      console.log('[DEBUG] Mensagem adicionada ao chat ativo')
+    } else {
+      console.log('[DEBUG] Mensagem pertence a outro lead, atualizando lista')
     }
 
     // Atualizar lista de leads
@@ -220,6 +230,17 @@ export default function Atendimentos() {
       setMessages(prev => prev.filter(m => m.id !== data.messageId))
     }
   }, [selectedLeadId]))
+
+  // Log socket connection status for debugging
+  useEffect(() => {
+    if (socket && isConnected) {
+      console.log('[DEBUG] Socket.io conectado e pronto para receber eventos:', {
+        socketId: socket.id,
+        connected: isConnected,
+        selectedLeadId
+      })
+    }
+  }, [socket, isConnected, selectedLeadId])
 
   // WhatsApp Web status via socket (se disponível)
   useSocketEvent(socket, 'whatsapp:web:status', useCallback((data) => {

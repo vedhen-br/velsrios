@@ -188,10 +188,55 @@ class WhatsAppWebService {
       // Evento crítico: mensagens recebidas (upsert)
       this.sock.ev.on('messages.upsert', async (u) => {
         try {
+          // Add comprehensive DEBUG logging at the start
+          logger.debug('[DEBUG] messages.upsert event:', {
+            type: u.type,
+            messageCount: u.messages?.length || 0,
+            timestamp: new Date().toISOString()
+          })
+
           const msg = u.messages?.[0]
-          if (!msg || msg.key.fromMe) return
+          if (!msg) {
+            logger.debug('[DEBUG] No message in upsert, skipping')
+            return
+          }
 
           const remoteJid = msg.key.remoteJid || ''
+          const fromMe = msg.key.fromMe
+          const messageId = msg.key.id
+
+          // Add compact summary log for each message
+          logger.debug('[DEBUG] Message processing:', {
+            remoteJid,
+            fromMe,
+            messageId,
+            hasMessage: !!msg.message,
+            messageTypes: Object.keys(msg.message || {})
+          })
+
+          // ONLY process inbound messages (not sent by us)
+          if (fromMe) {
+            logger.debug('[DEBUG] Skipping outbound message (fromMe=true)')
+            return
+          }
+
+          // Defensive guard: skip broadcast and status JIDs
+          if (
+            remoteJid.includes('broadcast') ||
+            remoteJid.includes('status@broadcast') ||
+            remoteJid.endsWith('@broadcast')
+          ) {
+            logger.debug('[DEBUG] Skipping broadcast/status message:', { remoteJid })
+            return
+          }
+
+          // Defensive guard: skip group messages for now (can be enabled later)
+          if (remoteJid.endsWith('@g.us')) {
+            logger.debug('[DEBUG] Skipping group message (not supported yet):', { remoteJid })
+            return
+          }
+
+          // Extract and normalize phone number
           let phone = (remoteJid.match(/\d+/g) || []).join('')
           phone = this.normalizePhone(phone)
           
@@ -216,17 +261,21 @@ class WhatsAppWebService {
             m?.messageContextInfo ||
             m?.reactionMessage
           ) {
-            logger.debug('⏭️ Mensagem de controle/sincronização ignorada')
+            logger.debug('[DEBUG] Mensagem de controle/sincronização ignorada')
             return
           }
           
+          // Enhanced text extraction supporting all message types
           const text =
             m.conversation ||
             m.extendedTextMessage?.text ||
             m.imageMessage?.caption ||
             m.videoMessage?.caption ||
+            m.audioMessage?.caption ||
+            m.documentMessage?.caption ||
             m.buttonsResponseMessage?.selectedDisplayText ||
             m.listResponseMessage?.title ||
+            m.listResponseMessage?.singleSelectReply?.selectedRowId ||
             m.templateButtonReplyMessage?.selectedDisplayText ||
             m.interactiveResponseMessage?.body?.text ||
             m.buttonsMessage?.contentText ||
@@ -234,7 +283,14 @@ class WhatsAppWebService {
 
           const timestamp = new Date()
           
-          logger.info('💬 Texto extraído:', { text: text?.slice(0, 100), hasText: !!text })
+          // Log extracted content with types detected
+          const detectedTypes = Object.keys(m || {}).filter(k => m[k])
+          logger.info('[DEBUG] Texto extraído:', { 
+            text: text?.slice(0, 100), 
+            hasText: !!text,
+            detectedTypes: detectedTypes,
+            messageId
+          })
           
           // Busca ou cria lead
           let lead = await prisma.lead.findFirst({ where: { phone } })
@@ -269,25 +325,37 @@ class WhatsAppWebService {
 
           // Se não há texto útil, ignora para evitar spam de "[mensagem não suportada]"
           if (!text || !String(text).trim()) {
-            logger.debug('⏭️ Mensagem sem texto útil ignorada')
+            logger.debug('[DEBUG] Mensagem sem texto útil ignorada')
             return
           }
 
+          // Persist message with whatsappId for tracking
           const savedMessage = await prisma.message.create({
             data: {
               leadId: lead.id,
               text: text,
               direction: 'incoming',
               sender: 'customer',
+              whatsappId: messageId,
               createdAt: timestamp
             }
           })
 
-          logger.info('💾 Mensagem salva no banco:', { messageId: savedMessage.id, leadId: lead.id })
+          logger.info('[DEBUG] 💾 Mensagem salva no banco:', { 
+            messageId: savedMessage.id, 
+            leadId: lead.id,
+            whatsappId: messageId,
+            textPreview: text?.slice(0, 50)
+          })
 
           if (this.io) {
             this.io.emit('message:new', { leadId: lead.id, message: savedMessage, lead })
-            logger.debug('📡 Evento message:new emitido via socket.io')
+            logger.debug('[DEBUG] 📡 Evento message:new emitido via socket.io:', {
+              leadId: lead.id,
+              messageId: savedMessage.id
+            })
+          } else {
+            logger.warn('[DEBUG] ⚠️ Socket.io não disponível, evento message:new não emitido')
           }
 
           // Gerar resposta automática via IA (classificador/responder simples)
