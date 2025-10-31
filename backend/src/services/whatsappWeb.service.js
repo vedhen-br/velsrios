@@ -12,14 +12,25 @@ const {
 const prisma = new PrismaClient()
 const aiClassifier = require('./aiClassifier')
 
-// Logger configurável via env
-const logger = pino({ 
-  level: process.env.WHATSAPP_LOG_LEVEL || 'info',
-  transport: process.env.NODE_ENV !== 'production' ? {
-    target: 'pino-pretty',
-    options: { colorize: true }
-  } : undefined
-})
+// Logger configurável via env (pino-pretty é opcional para desenvolvimento)
+const loggerOptions = { 
+  level: process.env.WHATSAPP_LOG_LEVEL || 'info'
+}
+
+// Em desenvolvimento, tenta usar pino-pretty se disponível
+if (process.env.NODE_ENV !== 'production') {
+  try {
+    require.resolve('pino-pretty')
+    loggerOptions.transport = {
+      target: 'pino-pretty',
+      options: { colorize: true }
+    }
+  } catch (e) {
+    // pino-pretty não disponível, usa logger padrão
+  }
+}
+
+const logger = pino(loggerOptions)
 
 class WhatsAppWebService {
   constructor() {
