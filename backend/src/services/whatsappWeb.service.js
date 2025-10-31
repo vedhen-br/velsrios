@@ -271,7 +271,7 @@ class WhatsAppWebService {
             m.extendedTextMessage?.text ||
             m.imageMessage?.caption ||
             m.videoMessage?.caption ||
-            m.audioMessage?.caption ||
+            m.audioMessage?.caption || // Note: audio messages rarely have captions, but checking for completeness
             m.documentMessage?.caption ||
             m.buttonsResponseMessage?.selectedDisplayText ||
             m.listResponseMessage?.title ||
