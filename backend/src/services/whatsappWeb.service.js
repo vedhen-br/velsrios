@@ -67,6 +67,35 @@ class WhatsAppWebService {
     }
   }
 
+  // Helper: verifica se JID deve ser ignorado (status, broadcast, grupos)
+  shouldIgnoreJid(jid) {
+    if (!jid) return true
+    if (jid.includes('@broadcast')) return true
+    if (jid.includes('status@broadcast')) return true
+    if (jid.endsWith('@g.us')) return true
+    return false
+  }
+
+  // Helper: extrai texto de vários tipos de mensagem
+  extractMessageText(message) {
+    return (
+      message.conversation ||
+      message.extendedTextMessage?.text ||
+      message.imageMessage?.caption ||
+      message.videoMessage?.caption ||
+      message.documentMessage?.caption ||
+      message.audioMessage?.caption ||
+      message.buttonsResponseMessage?.selectedDisplayText ||
+      message.listResponseMessage?.title ||
+      message.listResponseMessage?.singleSelectReply?.selectedRowId ||
+      message.templateButtonReplyMessage?.selectedDisplayText ||
+      message.interactiveResponseMessage?.body?.text ||
+      message.interactiveResponseMessage?.nativeFlowResponseMessage?.paramsJson ||
+      message.buttonsMessage?.contentText ||
+      ''
+    )
+  }
+
   async startSession(io) {
     try {
       // Prevenir múltiplas sessões simultâneas
@@ -188,132 +217,180 @@ class WhatsAppWebService {
       // Evento crítico: mensagens recebidas (upsert)
       this.sock.ev.on('messages.upsert', async (u) => {
         try {
-          const msg = u.messages?.[0]
-          if (!msg || msg.key.fromMe) return
-
-          const remoteJid = msg.key.remoteJid || ''
-          let phone = (remoteJid.match(/\d+/g) || []).join('')
-          phone = this.normalizePhone(phone)
-          
-          logger.info('📥 Mensagem recebida:', { phone, jid: remoteJid, hasMessage: !!msg.message })
-          
-          if (!phone || phone.length < 10 || phone.length > 15) {
-            logger.warn('⚠️ Telefone inválido ignorado:', { phone, length: phone?.length })
-            return
-          }
-
-          // Extrai texto básico (com unwrapping)
-          const m = unwrapMessage(msg)
-
-          // Ignorar mensagens de sincronização de histórico/controle e reações (não são mensagens do usuário)
-          if (
-            msg.message?.protocolMessage ||
-            msg.message?.senderKeyDistributionMessage ||
-            msg.message?.messageContextInfo ||
-            msg.messageStubType ||
-            m?.protocolMessage ||
-            m?.senderKeyDistributionMessage ||
-            m?.messageContextInfo ||
-            m?.reactionMessage
-          ) {
-            logger.debug('⏭️ Mensagem de controle/sincronização ignorada')
-            return
-          }
-          
-          const text =
-            m.conversation ||
-            m.extendedTextMessage?.text ||
-            m.imageMessage?.caption ||
-            m.videoMessage?.caption ||
-            m.buttonsResponseMessage?.selectedDisplayText ||
-            m.listResponseMessage?.title ||
-            m.templateButtonReplyMessage?.selectedDisplayText ||
-            m.interactiveResponseMessage?.body?.text ||
-            m.buttonsMessage?.contentText ||
-            ''
-
-          const timestamp = new Date()
-          
-          logger.info('💬 Texto extraído:', { text: text?.slice(0, 100), hasText: !!text })
-          
-          // Busca ou cria lead
-          let lead = await prisma.lead.findFirst({ where: { phone } })
-
-          if (!lead) {
-            const users = await prisma.user.findMany({ where: { role: 'user', available: true }, orderBy: { id: 'asc' } })
-            const admin = await prisma.user.findFirst({ where: { role: 'admin' } })
-
-            const assigned = users[0] || admin
-            lead = await prisma.lead.create({
-              data: {
-                name: phone,
-                phone,
-                origin: 'whatsapp',
-                status: 'open',
-                aiEnabled: true,
-                assignedTo: assigned?.id || null,
-                lastInteraction: timestamp
-              }
-            })
-
-            logger.info('🆕 Novo lead criado:', { leadId: lead.id, phone, assignedTo: assigned?.id })
-
-            if (assigned && this.io) {
-              await prisma.leadLog.create({ data: { leadId: lead.id, userId: assigned.id, action: 'Novo lead do WhatsApp (QR)' } })
-              this.io.emit('lead:new', { userId: assigned.id, lead })
-            }
-          } else {
-            await prisma.lead.update({ where: { id: lead.id }, data: { lastInteraction: timestamp } })
-            logger.debug('📝 Lead atualizado:', { leadId: lead.id })
-          }
-
-          // Se não há texto útil, ignora para evitar spam de "[mensagem não suportada]"
-          if (!text || !String(text).trim()) {
-            logger.debug('⏭️ Mensagem sem texto útil ignorada')
-            return
-          }
-
-          const savedMessage = await prisma.message.create({
-            data: {
-              leadId: lead.id,
-              text: text,
-              direction: 'incoming',
-              sender: 'customer',
-              createdAt: timestamp
-            }
+          // DEBUG: Log every upsert event summary
+          logger.debug('📬 messages.upsert event:', {
+            type: u.type,
+            messageCount: u.messages?.length || 0
           })
 
-          logger.info('💾 Mensagem salva no banco:', { messageId: savedMessage.id, leadId: lead.id })
+          // Process each message in the upsert batch
+          for (const msg of u.messages || []) {
+            try {
+              // Only process inbound messages (not sent by us)
+              if (!msg || msg.key.fromMe) {
+                logger.debug('⏭️ Skipping outbound message')
+                continue
+              }
 
-          if (this.io) {
-            this.io.emit('message:new', { leadId: lead.id, message: savedMessage, lead })
-            logger.debug('📡 Evento message:new emitido via socket.io')
-          }
+              const remoteJid = msg.key.remoteJid || ''
+              const whatsappId = msg.key.id || null
 
-          // Gerar resposta automática via IA (classificador/responder simples)
-          try {
-            // Responder apenas se IA estiver habilitada para este lead
-            const checkLead = await prisma.lead.findUnique({ where: { id: lead.id } })
-            if (checkLead?.aiEnabled) {
-              const aiResponse = aiClassifier.generateResponse(text)
-              if (aiResponse) {
-                logger.info('🤖 Resposta IA gerada:', { response: aiResponse?.slice(0, 100) })
-                
-                // Enviar resposta ao usuário via WhatsApp e persistir como 'bot' internamente
-                const sendRes = await this.sendMessage(phone, aiResponse, this.io, lead.id, 'bot')
-                
-                if (!sendRes.success) {
-                  logger.warn('⚠️ IA: envio via WhatsApp falhou', { error: sendRes.error })
-                } else {
-                  logger.info('✅ Resposta IA enviada com sucesso')
+              // Normalize JID: ignore status/broadcast and groups
+              if (this.shouldIgnoreJid(remoteJid)) {
+                logger.debug('⏭️ Ignoring status/broadcast/group message:', { remoteJid })
+                continue
+              }
+
+              // Extract phone from JID (strip @s.whatsapp.net and non-digits)
+              let phone = remoteJid.replace(/@s\.whatsapp\.net$/i, '').replace(/\D/g, '')
+              phone = this.normalizePhone(phone)
+              
+              // Get first message type key for logging
+              const m = unwrapMessage(msg)
+              const messageTypeKey = Object.keys(m).find(k => k !== 'messageContextInfo') || 'unknown'
+              
+              logger.info('📥 Processing inbound message:', { 
+                phone, 
+                jid: remoteJid, 
+                whatsappId,
+                messageType: messageTypeKey,
+                hasMessage: !!msg.message 
+              })
+              
+              if (!phone || phone.length < 10 || phone.length > 15) {
+                logger.warn('⚠️ Invalid phone number, skipping:', { phone, length: phone?.length, jid: remoteJid })
+                continue
+              }
+
+              // Ignore protocol/control messages and reactions (not actual user messages)
+              if (
+                msg.message?.protocolMessage ||
+                msg.message?.senderKeyDistributionMessage ||
+                msg.messageStubType ||
+                m?.protocolMessage ||
+                m?.senderKeyDistributionMessage ||
+                m?.reactionMessage
+              ) {
+                logger.debug('⏭️ Ignoring control/sync/reaction message')
+                continue
+              }
+              
+              // Extract text robustly from multiple message types
+              const text = this.extractMessageText(m)
+
+              const timestamp = new Date()
+              
+              logger.info('💬 Extracted text:', { 
+                text: text?.slice(0, 100), 
+                hasText: !!text,
+                messageType: messageTypeKey
+              })
+              
+              // Find or create lead by phone
+              let lead = await prisma.lead.findFirst({ where: { phone } })
+
+              if (!lead) {
+                const users = await prisma.user.findMany({ where: { role: 'user', available: true }, orderBy: { id: 'asc' } })
+                const admin = await prisma.user.findFirst({ where: { role: 'admin' } })
+
+                const assigned = users[0] || admin
+                lead = await prisma.lead.create({
+                  data: {
+                    name: phone,
+                    phone,
+                    origin: 'whatsapp',
+                    status: 'open',
+                    aiEnabled: true,
+                    assignedTo: assigned?.id || null,
+                    lastInteraction: timestamp
+                  }
+                })
+
+                logger.info('🆕 New lead created:', { leadId: lead.id, phone, assignedTo: assigned?.id })
+
+                if (assigned && this.io) {
+                  await prisma.leadLog.create({ 
+                    data: { 
+                      leadId: lead.id, 
+                      userId: assigned.id, 
+                      action: 'Novo lead do WhatsApp (QR)',
+                      message: `Lead criado a partir de mensagem recebida` 
+                    } 
+                  })
+                  this.io.emit('lead:new', { userId: assigned.id, lead })
+                }
+              } else {
+                await prisma.lead.update({ where: { id: lead.id }, data: { lastInteraction: timestamp } })
+                logger.debug('📝 Lead updated:', { leadId: lead.id })
+              }
+
+              // Skip messages without useful text to avoid "[unsupported message]" spam
+              if (!text || !String(text).trim()) {
+                logger.debug('⏭️ Message without text content, skipping persistence')
+                continue
+              }
+
+              // Check for duplicate by whatsappId to prevent double-processing
+              if (whatsappId) {
+                const existing = await prisma.message.findFirst({ where: { whatsappId } })
+                if (existing) {
+                  logger.debug('⏭️ Duplicate message detected, skipping:', { whatsappId, messageId: existing.id })
+                  continue
                 }
               }
+
+              const savedMessage = await prisma.message.create({
+                data: {
+                  leadId: lead.id,
+                  text: text,
+                  direction: 'incoming',
+                  sender: 'customer',
+                  whatsappId: whatsappId,
+                  createdAt: timestamp
+                }
+              })
+
+              logger.info('💾 Message saved to database:', { 
+                messageId: savedMessage.id, 
+                leadId: lead.id,
+                whatsappId: whatsappId
+              })
+
+              // Emit socket event for real-time UI update
+              if (this.io) {
+                this.io.emit('message:new', { leadId: lead.id, message: savedMessage, lead })
+                logger.debug('📡 Socket event message:new emitted')
+              }
+
+              // Auto-respond with AI if enabled for this lead
+              try {
+                const checkLead = await prisma.lead.findUnique({ where: { id: lead.id } })
+                if (checkLead?.aiEnabled) {
+                  const aiResponse = aiClassifier.generateResponse(text)
+                  if (aiResponse) {
+                    logger.info('🤖 AI response generated:', { response: aiResponse?.slice(0, 100) })
+                    
+                    const sendRes = await this.sendMessage(phone, aiResponse, this.io, lead.id, 'bot')
+                    
+                    if (!sendRes.success) {
+                      logger.warn('⚠️ AI message send failed', { error: sendRes.error })
+                    } else {
+                      logger.info('✅ AI response sent successfully')
+                    }
+                  }
+                }
+              } catch (e) {
+                logger.error('❌ Error generating/sending AI response:', e?.stack || e?.message || e)
+              }
+            } catch (itemError) {
+              logger.error('❌ Error processing individual message:', {
+                error: itemError?.message || itemError,
+                stack: itemError?.stack
+              })
             }
-          } catch (e) {
-            logger.error('❌ Erro ao gerar/enviar resposta IA:', e?.stack || e?.message || e)
           }
         } catch (err) {
-          logger.error('❌ Erro ao processar mensagem (Baileys):', err?.stack || err?.message || err)
+          logger.error('❌ Error in messages.upsert handler:', err?.stack || err?.message || err)
         }
       })
 

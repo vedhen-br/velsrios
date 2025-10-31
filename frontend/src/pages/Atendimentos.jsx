@@ -100,7 +100,7 @@ export default function Atendimentos() {
     el.scrollTop = el.scrollHeight
   }
 
-  async function fetchLeads() {
+  const fetchLeads = useCallback(async () => {
     try {
       const baseParams = {}
       if (filter === 'new') baseParams.stage = 'new'
@@ -125,7 +125,7 @@ export default function Atendimentos() {
       console.error('Erro ao carregar leads:', e)
       setLeads([])
     }
-  }
+  }, [filter, user, token])
 
   // stats removidas da UI para maximizar a área de atendimento
 
@@ -160,24 +160,43 @@ export default function Atendimentos() {
 
   // WebSocket: Nova mensagem
   const handleNewMessage = useCallback((data) => {
-    console.log('📩 Nova mensagem recebida:', data)
+    // Debug log to confirm end-to-end delivery
+    console.debug('🔔 [Socket] message:new received:', {
+      leadId: data.leadId,
+      messageId: data.message?.id,
+      text: data.message?.text?.slice(0, 50),
+      direction: data.message?.direction,
+      sender: data.message?.sender,
+      timestamp: data.message?.createdAt
+    })
 
-    // Atualizar mensagens se for do lead selecionado
+    // Update messages if it's for the currently active thread
     if (data.leadId === selectedLeadId) {
-      setMessages(prev => [...prev, data.message])
+      setMessages(prev => {
+        // Prevent duplicates by checking if message already exists
+        const exists = prev.some(m => m.id === data.message?.id)
+        if (exists) {
+          console.debug('⏭️ Message already exists in list, skipping:', data.message?.id)
+          return prev
+        }
+        console.debug('✅ Appending message to active thread')
+        return [...prev, data.message]
+      })
+    } else {
+      console.debug('📋 Message for different lead, updating lead list')
     }
 
-    // Atualizar lista de leads
+    // Refresh leads list to update lastMessage/unread count
     fetchLeads()
 
-    // Notificação in-app
+    // In-app notification
     const preview = data.message?.text?.slice(0, 80) || 'Nova mensagem'
     notify({
       title: 'Nova mensagem',
-      message: `${data.leadName || 'Lead'}: ${preview}`,
+      message: `${data.lead?.name || data.lead?.phone || 'Lead'}: ${preview}`,
       type: 'info'
     })
-  }, [selectedLeadId])
+  }, [selectedLeadId, fetchLeads, notify])
 
   // WebSocket: Novo lead
   const handleNewLead = useCallback((data) => {
