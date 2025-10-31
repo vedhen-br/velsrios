@@ -67,6 +67,35 @@ class WhatsAppWebService {
     }
   }
 
+  // Helper: verifica se JID deve ser ignorado (status, broadcast, grupos)
+  shouldIgnoreJid(jid) {
+    if (!jid) return true
+    if (jid.includes('@broadcast')) return true
+    if (jid.includes('status@broadcast')) return true
+    if (jid.endsWith('@g.us')) return true
+    return false
+  }
+
+  // Helper: extrai texto de vários tipos de mensagem
+  extractMessageText(message) {
+    return (
+      message.conversation ||
+      message.extendedTextMessage?.text ||
+      message.imageMessage?.caption ||
+      message.videoMessage?.caption ||
+      message.documentMessage?.caption ||
+      message.audioMessage?.caption ||
+      message.buttonsResponseMessage?.selectedDisplayText ||
+      message.listResponseMessage?.title ||
+      message.listResponseMessage?.singleSelectReply?.selectedRowId ||
+      message.templateButtonReplyMessage?.selectedDisplayText ||
+      message.interactiveResponseMessage?.body?.text ||
+      message.interactiveResponseMessage?.nativeFlowResponseMessage?.paramsJson ||
+      message.buttonsMessage?.contentText ||
+      ''
+    )
+  }
+
   async startSession(io) {
     try {
       // Prevenir múltiplas sessões simultâneas
@@ -207,10 +236,7 @@ class WhatsAppWebService {
               const whatsappId = msg.key.id || null
 
               // Normalize JID: ignore status/broadcast and groups
-              if (!remoteJid || 
-                  remoteJid.includes('@broadcast') || 
-                  remoteJid.includes('status@broadcast') ||
-                  remoteJid.endsWith('@g.us')) {
+              if (this.shouldIgnoreJid(remoteJid)) {
                 logger.debug('⏭️ Ignoring status/broadcast/group message:', { remoteJid })
                 continue
               }
@@ -250,21 +276,7 @@ class WhatsAppWebService {
               }
               
               // Extract text robustly from multiple message types
-              const text =
-                m.conversation ||
-                m.extendedTextMessage?.text ||
-                m.imageMessage?.caption ||
-                m.videoMessage?.caption ||
-                m.documentMessage?.caption ||
-                m.audioMessage?.caption ||
-                m.buttonsResponseMessage?.selectedDisplayText ||
-                m.listResponseMessage?.title ||
-                m.listResponseMessage?.singleSelectReply?.selectedRowId ||
-                m.templateButtonReplyMessage?.selectedDisplayText ||
-                m.interactiveResponseMessage?.body?.text ||
-                m.interactiveResponseMessage?.nativeFlowResponseMessage?.paramsJson ||
-                m.buttonsMessage?.contentText ||
-                ''
+              const text = this.extractMessageText(m)
 
               const timestamp = new Date()
               
