@@ -201,14 +201,8 @@ class WhatsAppWebService {
 
           const remoteJid = msg.key.remoteJid || ''
           
-          // Defensive guards: skip broadcast/status/group JIDs
-          if (
-            !remoteJid ||
-            remoteJid === 'status@broadcast' ||
-            remoteJid.includes('@broadcast') ||
-            remoteJid.includes('@g.us') || // Group chats
-            remoteJid.includes('@newsletter') // Newsletter/channel
-          ) {
+          // Defensive guards: skip broadcast/status/group JIDs (fast check using regex)
+          if (!remoteJid || /@(broadcast|g\.us|newsletter)/.test(remoteJid) || remoteJid === 'status@broadcast') {
             logger.debug('[DEBUG] Skipping non-individual JID:', { remoteJid })
             return
           }
@@ -241,20 +235,6 @@ class WhatsAppWebService {
             return
           }
           
-          // Detect message types for debugging
-          const detectedTypes = []
-          if (m.conversation) detectedTypes.push('conversation')
-          if (m.extendedTextMessage) detectedTypes.push('extendedTextMessage')
-          if (m.imageMessage) detectedTypes.push('imageMessage')
-          if (m.videoMessage) detectedTypes.push('videoMessage')
-          if (m.audioMessage) detectedTypes.push('audioMessage')
-          if (m.documentMessage) detectedTypes.push('documentMessage')
-          if (m.buttonsResponseMessage) detectedTypes.push('buttonsResponseMessage')
-          if (m.listResponseMessage) detectedTypes.push('listResponseMessage')
-          if (m.templateButtonReplyMessage) detectedTypes.push('templateButtonReplyMessage')
-          if (m.interactiveResponseMessage) detectedTypes.push('interactiveResponseMessage')
-          if (m.buttonsMessage) detectedTypes.push('buttonsMessage')
-
           const text =
             m.conversation ||
             m.extendedTextMessage?.text ||
@@ -271,13 +251,22 @@ class WhatsAppWebService {
 
           const timestamp = new Date()
           
-          logger.debug('[DEBUG] Message details:', {
-            remoteJid,
-            fromMe: msg.key.fromMe,
-            detectedTypes,
-            textPreview: text?.slice(0, 50) || '[no text]',
-            hasText: !!text
-          })
+          // Debug: detect message types and log (only when debug enabled)
+          if (logger.isLevelEnabled('debug')) {
+            const detectedTypes = Object.keys(m).filter(k => 
+              ['conversation', 'extendedTextMessage', 'imageMessage', 'videoMessage', 
+               'audioMessage', 'documentMessage', 'buttonsResponseMessage', 
+               'listResponseMessage', 'templateButtonReplyMessage', 
+               'interactiveResponseMessage', 'buttonsMessage'].includes(k)
+            )
+            logger.debug('[DEBUG] Message details:', {
+              remoteJid,
+              fromMe: msg.key.fromMe,
+              detectedTypes,
+              textPreview: text?.slice(0, 50) || '[no text]',
+              hasText: !!text
+            })
+          }
           
           logger.info('💬 Texto extraído:', { text: text?.slice(0, 100), hasText: !!text })
           
