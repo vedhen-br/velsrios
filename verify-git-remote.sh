@@ -2,18 +2,18 @@
 # Script to verify git remote configuration
 # Usage: ./verify-git-remote.sh
 
+set -euo pipefail
+
 echo "🔍 Verificando configuração do Git remote..."
 echo ""
 
 # Get the origin URL
-ORIGIN_URL=$(git remote get-url origin 2>&1)
-
-if [ $? -eq 0 ]; then
+if ORIGIN_URL=$(git remote get-url origin 2>&1); then
     echo "✅ Git remote 'origin' configurado com sucesso!"
     echo "📍 URL: $ORIGIN_URL"
     
-    # Verify it's the correct repository
-    if [[ "$ORIGIN_URL" == *"vedhen-br/velsrios"* ]]; then
+    # Verify it's the correct repository with precise pattern matching
+    if [[ "$ORIGIN_URL" =~ github\.com[:/]vedhen-br/velsrios(\.git)?$ ]]; then
         echo "✅ URL aponta para o repositório correto: vedhen-br/velsrios"
         exit 0
     else
