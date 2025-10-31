@@ -327,9 +327,9 @@ export default function Atendimentos() {
   const normalizePhone = (p) => (p || '').replace(/\D/g, '')
 
   return (
-    <div className="flex flex-col h-full min-h-0 overflow-hidden bg-gray-50">
+    <div className="flex flex-col h-full overflow-hidden bg-gray-50">
       {/* Cabeçalho compacto apenas com título e status */}
-      <div className="bg-white border-b border-gray-200 px-4 py-2">
+      <div className="bg-white border-b border-gray-200 px-4 py-2 flex-shrink-0">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <h1 className="text-lg font-semibold text-gray-900">Atendimentos</h1>
           <span className={`px-2 py-1 rounded-full text-xs ${waStatus === 'connected' ? 'bg-green-100 text-green-700' : waStatus === 'qr' || waStatus === 'connecting' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-700'}`}
@@ -340,9 +340,9 @@ export default function Atendimentos() {
       </div>
 
       {/* Interface de Atendimento */}
-      <div className="flex flex-1 bg-gray-100 min-h-0">
+      <div className="flex flex-1 bg-gray-100 overflow-hidden">
         {/* Coluna 1: Lista de Conversas */}
-        <div className="w-80 bg-white border-r border-gray-200 flex flex-col min-h-0">
+        <div className="w-80 bg-white border-r border-gray-200 flex flex-col overflow-hidden flex-shrink-0">
           {/* Header */}
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between mb-3">
@@ -440,11 +440,11 @@ export default function Atendimentos() {
         </div>
 
         {/* Coluna 2: Chat */}
-        <div className="flex-1 flex flex-col bg-gray-50 min-h-0">
+        <div className="flex-1 flex flex-col bg-gray-50 overflow-hidden">
           {selectedLead ? (
             <>
               {/* Header do Chat */}
-              <div className="bg-white p-4 border-b border-gray-200 flex items-center justify-between">
+              <div className="bg-white p-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center text-lg font-semibold text-gray-600">{selectedLead.name ? selectedLead.name.charAt(0).toUpperCase() : selectedLead.phone.slice(-2)}</div>
                   <div>
@@ -545,7 +545,7 @@ export default function Atendimentos() {
               {/* Área de Mensagens */}
               <div
                 ref={messagesContainerRef}
-                className="flex-1 overflow-y-auto p-4 space-y-6 overscroll-contain"
+                className="flex-1 overflow-y-auto p-4 space-y-6"
                 onScroll={(e) => {
                   const el = e.currentTarget
                   const distance = el.scrollHeight - el.scrollTop - el.clientHeight
@@ -647,7 +647,7 @@ export default function Atendimentos() {
               </div>
 
               {/* Input de Mensagem */}
-              <form onSubmit={sendMessage} className="bg-white p-4 border-t border-gray-200">
+              <form onSubmit={sendMessage} className="bg-white p-4 border-t border-gray-200 flex-shrink-0">
                 <div className="mb-2 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm">{user.name ? user.name.charAt(0).toUpperCase() : 'A'}</div>
