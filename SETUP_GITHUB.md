@@ -224,6 +224,26 @@ npm run dev
 
 ---
 
+## ✅ Verificar Configuração do Git Remote
+
+Para verificar se o repositório está corretamente configurado com o remote origin:
+
+### Via Script Bash:
+```bash
+./verify-git-remote.sh
+```
+
+### Via npm:
+```bash
+npm run verify:git
+```
+
+Este comando verifica se:
+- ✅ O remote 'origin' está configurado
+- ✅ A URL aponta para `vedhen-br/velsrios`
+
+---
+
 ## 🔄 Iteração e Alterações
 
 ### Para Fazer Alterações:

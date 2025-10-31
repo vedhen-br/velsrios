@@ -15,6 +15,7 @@
     "prisma:studio": "npm run prisma --prefix backend -- studio",
     "seed": "npm run seed --prefix backend",
     "codespaces": "echo '🚀 Iniciando Lead Campanha CRM no Codespaces...' && npm run dev",
+    "verify:git": "bash verify-git-remote.sh",
     "vercel:dev": "vercel dev",
     "vercel:deploy": "vercel --prod"
   },
