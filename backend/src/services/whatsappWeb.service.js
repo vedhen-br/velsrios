@@ -270,6 +270,8 @@ class WhatsAppWebService {
           }
           
           // Extract text from various message types (robust extraction)
+          // Note: Some fields like audioMessage.caption may not be used by WhatsApp
+          // but are included for defensive programming and future compatibility
           const text =
             m.conversation ||
             m.extendedTextMessage?.text ||
@@ -344,7 +346,7 @@ class WhatsAppWebService {
               text: text,
               direction: 'incoming',
               sender: 'customer',
-              whatsappId: msg.key.id || null, // Store WhatsApp message ID for tracking
+              whatsappId: msg.key.id || null, // Store WhatsApp message ID for status tracking
               createdAt: timestamp
             }
           })
@@ -353,6 +355,7 @@ class WhatsAppWebService {
             messageId: savedMessage.id, 
             leadId: lead.id,
             whatsappId: savedMessage.whatsappId,
+            hasWhatsappId: !!savedMessage.whatsappId, // Flag to monitor if ID is missing
             textPreview: text?.slice(0, 50)
           })
 
