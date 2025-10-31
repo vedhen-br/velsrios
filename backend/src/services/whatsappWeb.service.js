@@ -185,6 +185,32 @@ class WhatsAppWebService {
         return m || {}
       }
 
+      // Helper: extrai texto de mensagem (conversação, legendas, respostas de botão/lista)
+      const extractMessageText = (m) => {
+        return (
+          m.conversation ||
+          m.extendedTextMessage?.text ||
+          m.imageMessage?.caption ||
+          m.videoMessage?.caption ||
+          m.audioMessage?.caption ||
+          m.documentMessage?.caption ||
+          m.buttonsResponseMessage?.selectedDisplayText ||
+          m.listResponseMessage?.title ||
+          m.templateButtonReplyMessage?.selectedDisplayText ||
+          m.interactiveResponseMessage?.body?.text ||
+          m.buttonsMessage?.contentText ||
+          ''
+        )
+      }
+
+      // Constante: tipos de mensagem para debug
+      const MESSAGE_TYPES = [
+        'conversation', 'extendedTextMessage', 'imageMessage', 'videoMessage', 
+        'audioMessage', 'documentMessage', 'buttonsResponseMessage', 
+        'listResponseMessage', 'templateButtonReplyMessage', 
+        'interactiveResponseMessage', 'buttonsMessage'
+      ]
+
       // Evento crítico: mensagens recebidas (upsert)
       this.sock.ev.on('messages.upsert', async (u) => {
         try {
@@ -235,30 +261,13 @@ class WhatsAppWebService {
             return
           }
           
-          const text =
-            m.conversation ||
-            m.extendedTextMessage?.text ||
-            m.imageMessage?.caption ||
-            m.videoMessage?.caption ||
-            m.audioMessage?.caption ||
-            m.documentMessage?.caption ||
-            m.buttonsResponseMessage?.selectedDisplayText ||
-            m.listResponseMessage?.title ||
-            m.templateButtonReplyMessage?.selectedDisplayText ||
-            m.interactiveResponseMessage?.body?.text ||
-            m.buttonsMessage?.contentText ||
-            ''
+          const text = extractMessageText(m)
 
           const timestamp = new Date()
           
           // Debug: detect message types and log (only when debug enabled)
           if (logger.isLevelEnabled('debug')) {
-            const detectedTypes = Object.keys(m).filter(k => 
-              ['conversation', 'extendedTextMessage', 'imageMessage', 'videoMessage', 
-               'audioMessage', 'documentMessage', 'buttonsResponseMessage', 
-               'listResponseMessage', 'templateButtonReplyMessage', 
-               'interactiveResponseMessage', 'buttonsMessage'].includes(k)
-            )
+            const detectedTypes = Object.keys(m).filter(k => MESSAGE_TYPES.includes(k))
             logger.debug('[DEBUG] Message details:', {
               remoteJid,
               fromMe: msg.key.fromMe,
