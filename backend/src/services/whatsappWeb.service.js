@@ -40,6 +40,7 @@ class WhatsAppWebService {
     this.io = null
     this.reconnectAttempts = 0
     this.maxReconnectAttempts = 10
+    this.isReconnecting = false // Lock para evitar reconexões concorrentes
   }
 
   getStatus() {
@@ -68,6 +69,13 @@ class WhatsAppWebService {
 
   async startSession(io) {
     try {
+      // Prevenir múltiplas sessões simultâneas
+      if (this.isReconnecting) {
+        logger.warn('⚠️ Reconexão já em andamento, ignorando nova tentativa')
+        return { started: false, status: this.status, message: 'reconnection-in-progress' }
+      }
+
+      this.isReconnecting = true
       this.io = io
       logger.info('🔄 Iniciando sessão WhatsApp Web/Baileys...')
       
@@ -126,6 +134,7 @@ class WhatsAppWebService {
             this.status = 'connected'
             this.qrDataUrl = null
             this.reconnectAttempts = 0
+            this.isReconnecting = false // Libera lock ao conectar
             
             if (io) io.emit('whatsapp:web:status', { status: 'connected' })
             
@@ -138,6 +147,7 @@ class WhatsAppWebService {
             
             this.status = 'disconnected'
             this.qrDataUrl = null
+            this.isReconnecting = false // Libera lock ao desconectar
             
             if (io) io.emit('whatsapp:web:status', { status: 'disconnected' })
             
@@ -346,6 +356,7 @@ class WhatsAppWebService {
     } catch (error) {
       logger.error('❌ Erro fatal ao iniciar sessão WhatsApp Web:', error?.stack || error?.message || error)
       this.status = 'disconnected'
+      this.isReconnecting = false // Libera lock em caso de erro
       throw error
     }
   }
@@ -516,6 +527,7 @@ class WhatsAppWebService {
       this.qrDataUrl = null
       this.sock = null
       this.reconnectAttempts = 0
+      this.isReconnecting = false // Libera lock ao desconectar
       
       logger.info('🔌 WhatsApp Web desconectado')
       
