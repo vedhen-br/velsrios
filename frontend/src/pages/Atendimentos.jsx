@@ -100,7 +100,7 @@ export default function Atendimentos() {
     el.scrollTop = el.scrollHeight
   }
 
-  async function fetchLeads() {
+  const fetchLeads = useCallback(async () => {
     try {
       const baseParams = {}
       if (filter === 'new') baseParams.stage = 'new'
@@ -125,7 +125,7 @@ export default function Atendimentos() {
       console.error('Erro ao carregar leads:', e)
       setLeads([])
     }
-  }
+  }, [filter, user, token])
 
   // stats removidas da UI para maximizar a área de atendimento
 
