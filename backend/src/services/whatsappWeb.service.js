@@ -351,7 +351,7 @@ class WhatsAppWebService {
               text: text,
               direction: 'incoming',
               sender: 'customer',
-              whatsappId: messageId || null,
+              whatsappId: messageId,
               createdAt: timestamp
             }
           })
