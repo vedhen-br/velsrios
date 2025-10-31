@@ -5,21 +5,22 @@
 ### Backend (backend/src/services/whatsappWeb.service.js)
 
 1. **Added `whatsappId` field** to persisted inbound messages
-   - Line 282: Added `whatsappId: msg.key.id || null` to message creation
+   - Added `whatsappId: msg.key.id || null` to message creation
    - This enables tracking of message status updates (delivered, read, etc.)
 
 2. **Enhanced defensive guards** for non-individual JIDs
-   - Lines 204-214: Added checks to skip broadcast, status, group, and newsletter messages
+   - Added checks to skip broadcast, status, group, and newsletter messages using regex
    - Prevents processing of system messages that aren't from individual customers
 
 3. **Added audio and document caption extraction**
-   - Lines 262-263: Added `m.audioMessage?.caption` and `m.documentMessage?.caption`
+   - Added `m.audioMessage?.caption` and `m.documentMessage?.caption`
    - Ensures captions from audio and document messages are captured
 
-4. **Enhanced DEBUG logging**
-   - Line 191-196: Added initial debug log when messages.upsert is received
-   - Lines 244-252: Added detailed message type detection and logging
-   - Lines 332, 336: Enhanced log messages with more context
+4. **Enhanced DEBUG logging with helper functions**
+   - Added initial debug log when messages.upsert is received
+   - Created helper functions for text extraction and message type detection
+   - Moved constants to module level for better performance
+   - Enhanced log messages with more context
 
 ### Frontend (frontend/src/pages/Atendimentos.jsx)
 

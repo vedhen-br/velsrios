@@ -32,6 +32,15 @@ if (process.env.NODE_ENV !== 'production') {
 
 const logger = pino(loggerOptions)
 
+// Constantes para processamento de mensagens
+const SKIP_JID_PATTERN = /@(broadcast|g\.us|newsletter)/
+const MESSAGE_TYPES = [
+  'conversation', 'extendedTextMessage', 'imageMessage', 'videoMessage', 
+  'audioMessage', 'documentMessage', 'buttonsResponseMessage', 
+  'listResponseMessage', 'templateButtonReplyMessage', 
+  'interactiveResponseMessage', 'buttonsMessage'
+]
+
 class WhatsAppWebService {
   constructor() {
     this.status = 'disconnected' // 'disconnected' | 'qr' | 'connecting' | 'connected'
@@ -203,14 +212,6 @@ class WhatsAppWebService {
         )
       }
 
-      // Constante: tipos de mensagem para debug
-      const MESSAGE_TYPES = [
-        'conversation', 'extendedTextMessage', 'imageMessage', 'videoMessage', 
-        'audioMessage', 'documentMessage', 'buttonsResponseMessage', 
-        'listResponseMessage', 'templateButtonReplyMessage', 
-        'interactiveResponseMessage', 'buttonsMessage'
-      ]
-
       // Evento crítico: mensagens recebidas (upsert)
       this.sock.ev.on('messages.upsert', async (u) => {
         try {
@@ -228,7 +229,7 @@ class WhatsAppWebService {
           const remoteJid = msg.key.remoteJid || ''
           
           // Defensive guards: skip broadcast/status/group JIDs (fast check using regex)
-          if (!remoteJid || /@(broadcast|g\.us|newsletter)/.test(remoteJid) || remoteJid === 'status@broadcast') {
+          if (!remoteJid || SKIP_JID_PATTERN.test(remoteJid) || remoteJid === 'status@broadcast') {
             logger.debug('[DEBUG] Skipping non-individual JID:', { remoteJid })
             return
           }
